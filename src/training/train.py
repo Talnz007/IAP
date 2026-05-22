@@ -22,7 +22,7 @@ from src.training.model_registry import get_model_registry
 
 
 def load_training_data(
-    feature_group_name: str = 'islamabad_aqi_features',
+    feature_group_name: str = 'aqi_features',
     start_date: datetime = None,
     end_date: datetime = None
 ) -> pd.DataFrame:
@@ -52,10 +52,10 @@ def load_training_data(
         df = fs.get_features(feature_group_name, start_date, end_date)
         
         if not df.empty:
-            print(f"✓ Loaded {len(df)} records from Hopsworks Feature Store")
+            print(f"✓ Loaded {len(df)} records from Supabase Feature Store")
             return df
     except Exception as e:
-        print(f"Warning: Could not connect to Hopsworks: {e}")
+        print(f"Warning: Could not connect to Supabase: {e}")
         print("Falling back to local data files...")
     
     # Fallback to local files
@@ -71,7 +71,7 @@ def load_training_data(
                 print(f"✓ Loaded {len(df)} records from local file")
                 return df
     
-    raise ValueError("No training data found in Hopsworks or local files")
+    raise ValueError("No training data found in Supabase or local files")
 
 
 def prepare_data(

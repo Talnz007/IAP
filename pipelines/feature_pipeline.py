@@ -14,7 +14,7 @@ load_dotenv()
 
 # Debug: Print if env vars are set
 print(f"DEBUG: OPENWEATHERMAP_API_KEY set: {bool(os.getenv('OPENWEATHERMAP_API_KEY'))}")
-print(f"DEBUG: HOPSWORKS_API_KEY set: {bool(os.getenv('HOPSWORKS_API_KEY'))}")
+print(f"DEBUG: SUPABASE_URL set: {bool(os.getenv('SUPABASE_URL'))}")
 
 from src.features.fetch_data import AQIDataFetcher
 from src.features.compute_features import compute_all_features
@@ -34,7 +34,7 @@ def run_feature_pipeline(cities: list = None):
         cities: List of cities to fetch data for
     """
     if cities is None:
-        cities = ["Karachi", "Lahore", "Islamabad"]
+        cities = ["Islamabad"]
     
     logger.info("="*50)
     logger.info("Starting Feature Pipeline")
@@ -52,7 +52,7 @@ def run_feature_pipeline(cities: list = None):
             logger.info(f"Fetching data for {city}...")
             
             # Fetch current AQI data
-            raw_data = fetcher.fetch_current_aqi(city)
+            raw_data = fetcher.fetch_current_merged(city)
             
             if raw_data:
                 all_data.append(raw_data)

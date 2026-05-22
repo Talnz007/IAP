@@ -1,8 +1,9 @@
 """
 Feature Store integration for storing and retrieving features.
-Supports Hopsworks (free tier) or local storage.
+Supports Supabase (free tier) or local storage.
 """
 import os
+import json
 import pandas as pd
 from datetime import datetime
 from typing import Optional, Tuple
@@ -69,103 +70,113 @@ class LocalFeatureStore(FeatureStore):
         return df
 
 
-class HopsworksFeatureStore(FeatureStore):
-    """Hopsworks feature store integration."""
+class SupabaseFeatureStore(FeatureStore):
+    """Supabase feature store integration."""
     
     def __init__(self):
-        self.api_key = os.getenv("HOPSWORKS_API_KEY")
-        self.project_name = os.getenv("HOPSWORKS_PROJECT_NAME", "aqi_predictor")
-        self._connection = None
-        self._fs = None
+        from supabase import create_client, Client
+        self.url = os.getenv("SUPABASE_URL")
+        self.key = os.getenv("SUPABASE_KEY")
+        if not self.url or not self.key:
+            raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
+        self.client: Client = create_client(self.url, self.key)
         
-    def _connect(self):
-        """Establish connection to Hopsworks."""
-        if self._connection is None:
+    def save_features(self, df: pd.DataFrame, feature_group_name: str = 'aqi_features', primary_key: list = None):
+        """Save features to Supabase."""
+        # Convert timestamp to ISO format string if necessary
+        df = df.copy()
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp']).dt.strftime('%Y-%m-%dT%H:%M:%S%z')
+            
+        # Standard columns in our schema
+        standard_cols = ['timestamp', 'city', 'aqi', 'pm2_5', 'pm10', 'no2', 'so2', 'co', 'o3', 'temperature', 'humidity', 'wind_speed', 'pressure']
+        
+        records = []
+        for _, row in df.iterrows():
+            row_dict = row.to_dict()
+            
+            record = {}
+            features = {}
+            for k, v in row_dict.items():
+                if pd.isna(v):
+                    v = None
+                if k in standard_cols:
+                    record[k] = v
+                else:
+                    features[k] = v
+                    
+            record['features'] = features
+            records.append(record)
+            
+        # Upsert in batches of 500
+        batch_size = 500
+        for i in range(0, len(records), batch_size):
+            batch = records[i:i+batch_size]
             try:
-                import hopsworks
-                self._connection = hopsworks.login(
-                    api_key_value=self.api_key,
-                    project=self.project_name
-                )
-                self._fs = self._connection.get_feature_store()
+                self.client.table(feature_group_name).upsert(batch, on_conflict='timestamp,city').execute()
             except Exception as e:
-                print(f"Error connecting to Hopsworks: {e}")
+                print(f"Error saving to Supabase: {e}")
                 raise
                 
-    def save_features(self, df: pd.DataFrame, feature_group_name: str, primary_key: list = None):
-        """Save features to Hopsworks feature group."""
-        self._connect()
-        
-        if primary_key is None:
-            primary_key = ['timestamp', 'city']
-            
-        try:
-            # Get or create feature group
-            fg = self._fs.get_or_create_feature_group(
-                name=feature_group_name,
-                version=1,
-                primary_key=primary_key,
-                event_time='timestamp',
-                description=f"AQI features for {feature_group_name}"
-            )
-            
-            # Insert data
-            fg.insert(df)
-            print(f"Saved {len(df)} records to Hopsworks feature group: {feature_group_name}")
-            
-        except Exception as e:
-            print(f"Error saving to Hopsworks: {e}")
-            raise
+        print(f"Saved {len(df)} records to Supabase table: {feature_group_name}")
             
     def get_features(
         self, 
-        feature_group_name: str, 
+        feature_group_name: str = 'aqi_features', 
         start_date: datetime = None, 
         end_date: datetime = None
     ) -> pd.DataFrame:
-        """Get features from Hopsworks feature group."""
-        self._connect()
+        """Get features from Supabase."""
+        query = self.client.table(feature_group_name).select('*')
         
+        if start_date:
+            query = query.gte('timestamp', start_date.isoformat())
+        if end_date:
+            query = query.lte('timestamp', end_date.isoformat())
+            
         try:
-            fg = self._fs.get_feature_group(name=feature_group_name, version=1)
+            response = query.execute()
+            data = response.data
             
-            # Build query
-            query = fg.select_all()
-            
-            # Apply time filters if provided
-            if start_date or end_date:
-                df = query.read()
-                if 'timestamp' in df.columns:
-                    df['timestamp'] = pd.to_datetime(df['timestamp'])
-                    if start_date:
-                        df = df[df['timestamp'] >= start_date]
-                    if end_date:
-                        df = df[df['timestamp'] <= end_date]
-                return df
-            else:
-                return query.read()
+            if not data:
+                return pd.DataFrame()
                 
+            # Flatten the 'features' JSONB into columns
+            flattened = []
+            for row in data:
+                flat_row = {k: v for k, v in row.items() if k != 'features' and k != 'id' and k != 'created_at'}
+                features = row.get('features') or {}
+                flat_row.update(features)
+                flattened.append(flat_row)
+                
+            df = pd.DataFrame(flattened)
+            
+            if 'timestamp' in df.columns:
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                
+            return df
+            
         except Exception as e:
-            print(f"Error reading from Hopsworks: {e}")
+            print(f"Error reading from Supabase: {e}")
             return pd.DataFrame()
 
 
-def get_feature_store(use_hopsworks: bool = None) -> FeatureStore:
+def get_feature_store(use_supabase: bool = None) -> FeatureStore:
     """
     Factory function to get the appropriate feature store.
     
     Args:
-        use_hopsworks: If True, use Hopsworks. If False, use local. 
+        use_supabase: If True, use Supabase. If False, use local. 
                       If None, auto-detect based on environment.
                       
     Returns:
         FeatureStore instance
     """
-    if use_hopsworks is None:
-        use_hopsworks = os.getenv("HOPSWORKS_API_KEY") is not None
+    if use_supabase is None:
+        use_supabase = os.getenv("SUPABASE_URL") is not None
         
-    if use_hopsworks:
-        return HopsworksFeatureStore()
+    if use_supabase:
+        return SupabaseFeatureStore()
     else:
         return LocalFeatureStore()
 

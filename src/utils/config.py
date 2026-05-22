@@ -22,9 +22,9 @@ class APIConfig:
 @dataclass
 class FeatureStoreConfig:
     """Feature store configuration."""
-    use_hopsworks: bool = os.getenv("HOPSWORKS_API_KEY") is not None
-    hopsworks_api_key: str = os.getenv("HOPSWORKS_API_KEY", "")
-    hopsworks_project: str = os.getenv("HOPSWORKS_PROJECT_NAME", "aqi_predictor")
+    use_supabase: bool = os.getenv("SUPABASE_URL") is not None
+    supabase_url: str = os.getenv("SUPABASE_URL", "")
+    supabase_key: str = os.getenv("SUPABASE_KEY", "")
     local_path: Path = Path(__file__).parent.parent.parent / "data" / "processed"
 
 

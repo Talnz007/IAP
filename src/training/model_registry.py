@@ -16,12 +16,6 @@ try:
 except ImportError:
     MLFLOW_AVAILABLE = False
 
-try:
-    import hopsworks
-    HOPSWORKS_AVAILABLE = True
-except ImportError:
-    HOPSWORKS_AVAILABLE = False
-
 
 class LocalModelRegistry:
     """Local file-based model registry."""
@@ -38,20 +32,11 @@ class LocalModelRegistry:
         model_name: str, 
         metrics: Dict[str, float] = None,
         params: Dict[str, Any] = None,
-        version: str = None
+        version: str = None,
+        feature_names: list = None
     ) -> str:
         """
         Save a model to the registry.
-        
-        Args:
-            model: Trained model object
-            model_name: Name for the model
-            metrics: Evaluation metrics
-            params: Model hyperparameters
-            version: Version string (auto-generated if not provided)
-            
-        Returns:
-            Path to saved model
         """
         if version is None:
             version = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -69,7 +54,8 @@ class LocalModelRegistry:
             'version': version,
             'created_at': datetime.now().isoformat(),
             'metrics': metrics or {},
-            'params': params or {}
+            'params': params or {},
+            'feature_names': feature_names or []
         }
         
         metadata_path = model_dir / "metadata.json"
@@ -87,13 +73,6 @@ class LocalModelRegistry:
     def load_model(self, model_name: str, version: str = None) -> Any:
         """
         Load a model from the registry.
-        
-        Args:
-            model_name: Name of the model
-            version: Version to load (loads latest if not provided)
-            
-        Returns:
-            Loaded model object
         """
         if version is None:
             latest_path = self.base_path / model_name / "latest.txt"
@@ -161,6 +140,7 @@ class MLflowModelRegistry:
         model_name: str, 
         metrics: Dict[str, float] = None,
         params: Dict[str, Any] = None,
+        feature_names: list = None,
         **kwargs
     ) -> str:
         """Save a model using MLflow."""
@@ -194,15 +174,17 @@ class MLflowModelRegistry:
         return mlflow.sklearn.load_model(model_uri)
 
 
-class HopsworksModelRegistry:
-    """Hopsworks-based model registry."""
+class SupabaseModelRegistry(LocalModelRegistry):
+    """Supabase-based model registry."""
     
-    def __init__(self):
-        if not HOPSWORKS_AVAILABLE:
-            raise ImportError("Hopsworks is required. Install with: pip install hopsworks")
-        
-        self.project = hopsworks.login()
-        self.mr = self.project.get_model_registry()
+    def __init__(self, base_path: str = None):
+        super().__init__(base_path)
+        from supabase import create_client, Client
+        self.url = os.getenv("SUPABASE_URL")
+        self.key = os.getenv("SUPABASE_KEY")
+        if not self.url or not self.key:
+            raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
+        self.client: Client = create_client(self.url, self.key)
         
     def save_model(
         self, 
@@ -210,127 +192,82 @@ class HopsworksModelRegistry:
         model_name: str, 
         metrics: Dict[str, float] = None,
         params: Dict[str, Any] = None,
-        feature_names: list = None,
-        **kwargs
+        version: str = None,
+        feature_names: list = None
     ) -> str:
         """
-        Save a model to Hopsworks Model Registry.
-        
-        Args:
-            model: Trained model object
-            model_name: Name for the model
-            metrics: Evaluation metrics
-            params: Model hyperparameters
-            feature_names: List of feature names
-            
-        Returns:
-            Model version
+        Save a model to Supabase Model Registry.
         """
-        # Create temp directory for model artifacts
-        with tempfile.TemporaryDirectory() as tmpdir:
-            model_dir = Path(tmpdir)
+        if version is None:
+            version = datetime.now().strftime("%Y%m%d_%H%M%S")
             
-            # Save model
-            model_path = model_dir / "model.joblib"
-            joblib.dump(model, model_path)
-            
-            # Save metadata
-            metadata = {
+        # Call LocalModelRegistry's save_model to save joblib and metadata file
+        model_path = super().save_model(model, model_name, metrics, params, version, feature_names)
+        
+        # Save metadata to Supabase table
+        try:
+            record = {
                 'model_name': model_name,
-                'created_at': datetime.now().isoformat(),
+                'version': version,
                 'metrics': metrics or {},
                 'params': params or {},
-                'feature_names': feature_names or []
+                'feature_names': feature_names or [],
+                'description': f"AQI Predictor - {model_name}"
             }
             
-            metadata_path = model_dir / "metadata.json"
-            with open(metadata_path, 'w') as f:
-                json.dump(metadata, f, indent=2)
+            self.client.table('model_registry').upsert(record, on_conflict='model_name,version').execute()
+            print(f"Model metadata saved to Supabase: {model_name} v{version}")
             
-            # Create model in Hopsworks
-            hw_model = self.mr.python.create_model(
-                name=model_name,
-                metrics=metrics or {},
-                description=f"AQI Predictor - {model_name}"
-            )
+        except Exception as e:
+            print(f"Error saving to Supabase Model Registry: {e}")
+            raise
             
-            # Upload model artifacts
-            hw_model.save(str(model_dir))
-            
-            print(f"Model saved to Hopsworks: {model_name} v{hw_model.version}")
-            return f"{model_name}_v{hw_model.version}"
+        return f"{model_name}_v{version}"
     
-    def load_model(self, model_name: str, version: int = None) -> Any:
-        """
-        Load a model from Hopsworks Model Registry.
-        
-        Args:
-            model_name: Name of the model
-            version: Version to load (loads latest if not provided)
+    def get_model_metadata(self, model_name: str, version: str = None) -> Dict[str, Any]:
+        """Get metadata for a model from Supabase."""
+        query = self.client.table('model_registry').select('*').eq('model_name', model_name)
+        if version:
+            query = query.eq('version', version)
+        else:
+            query = query.order('version', desc=True).limit(1)
             
-        Returns:
-            Loaded model object
-        """
-        if version:
-            hw_model = self.mr.get_model(model_name, version=version)
-        else:
-            # Get latest version
-            hw_model = self.mr.get_model(model_name)
-        
-        # Download model artifacts
-        model_dir = hw_model.download()
-        model_path = Path(model_dir) / "model.joblib"
-        
-        if not model_path.exists():
-            raise ValueError(f"Model file not found in: {model_dir}")
-        
-        return joblib.load(model_path)
-    
-    def get_model_metadata(self, model_name: str, version: int = None) -> Dict[str, Any]:
-        """Get metadata for a model from Hopsworks."""
-        if version:
-            hw_model = self.mr.get_model(model_name, version=version)
-        else:
-            hw_model = self.mr.get_model(model_name)
-        
-        model_dir = hw_model.download()
-        metadata_path = Path(model_dir) / "metadata.json"
-        
-        if metadata_path.exists():
-            with open(metadata_path, 'r') as f:
-                return json.load(f)
-        
-        return {'metrics': hw_model.training_metrics}
+        try:
+            response = query.execute()
+            data = response.data
+            if data:
+                return data[0]
+            return super().get_model_metadata(model_name, version)
+        except Exception as e:
+            print(f"Error getting metadata from Supabase: {e}")
+            return super().get_model_metadata(model_name, version)
     
     def list_models(self) -> Dict[str, list]:
-        """List all models in Hopsworks Model Registry."""
-        models = {}
-        
-        for model in self.mr.get_models():
-            if model.name not in models:
-                models[model.name] = []
-            models[model.name].append(model.version)
-        
-        return models
+        """List all models in Supabase Model Registry."""
+        try:
+            response = self.client.table('model_registry').select('model_name', 'version').execute()
+            data = response.data
+            models = {}
+            for item in data:
+                name = item['model_name']
+                if name not in models:
+                    models[name] = []
+                models[name].append(item['version'])
+            return models
+        except Exception as e:
+            print(f"Error listing models from Supabase: {e}")
+            return super().list_models()
 
 
-def get_model_registry(use_mlflow: bool = None, use_hopsworks: bool = None) -> Union[LocalModelRegistry, MLflowModelRegistry, HopsworksModelRegistry]:
+def get_model_registry(use_mlflow: bool = None, use_supabase: bool = None) -> Union[LocalModelRegistry, MLflowModelRegistry, SupabaseModelRegistry]:
     """
     Factory function to get model registry.
-    
-    Args:
-        use_mlflow: If True, use MLflow. If None, auto-detect.
-        use_hopsworks: If True, use Hopsworks. If None, auto-detect.
-        
-    Returns:
-        Model registry instance
     """
-    # Check for Hopsworks first (preferred for this project)
-    if use_hopsworks is None:
-        use_hopsworks = HOPSWORKS_AVAILABLE and os.getenv("HOPSWORKS_API_KEY") is not None
+    if use_supabase is None:
+        use_supabase = os.getenv("SUPABASE_URL") is not None
     
-    if use_hopsworks:
-        return HopsworksModelRegistry()
+    if use_supabase:
+        return SupabaseModelRegistry()
     
     if use_mlflow is None:
         use_mlflow = MLFLOW_AVAILABLE and os.getenv("MLFLOW_TRACKING_URI") is not None

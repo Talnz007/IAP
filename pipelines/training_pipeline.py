@@ -81,8 +81,8 @@ def run_training_pipeline(
         for model_name, (_, metrics) in results.items():
             logger.info(f"  {model_name}: RMSE={metrics['rmse']:.4f}, R²={metrics['r2']:.4f}")
         
-        # Save all models to Hopsworks Model Registry
-        logger.info("Saving all models to Hopsworks Model Registry...")
+        # Save all models to registry
+        logger.info("Saving all models to registry...")
         saved_models = save_all_models(results, feature_names=feature_names)
         for model_name, model_path in saved_models.items():
             logger.info(f"  ✓ {model_name}: {model_path}")

@@ -27,14 +27,13 @@ cities:
 
 # Feature Store Configuration
 feature_store:
-  type: "local"  # Options: local, hopsworks
+  type: "local"  # Options: local, supabase
   local:
     path: "./data/features"
-  hopsworks:
-    project_name: ${HOPSWORKS_PROJECT}
-    api_key: ${HOPSWORKS_API_KEY}
-    feature_group_name: "aqi_features"
-    feature_group_version: 1
+  supabase:
+    url: ${SUPABASE_URL}
+    key: ${SUPABASE_KEY}
+    feature_table_name: "aqi_features"
 
 # Data Configuration
 data:

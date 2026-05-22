@@ -29,15 +29,15 @@ jobs:
         env:
           AQI_API_KEY: ${{ secrets.AQI_API_KEY }}
           OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
-          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
-          HOPSWORKS_PROJECT_NAME: ${{ secrets.HOPSWORKS_PROJECT_NAME }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           echo "Checking secrets..."
           echo "OPENWEATHERMAP_API_KEY length: ${#OPENWEATHERMAP_API_KEY}"
-          echo "HOPSWORKS_API_KEY length: ${#HOPSWORKS_API_KEY}"
+          echo "SUPABASE_KEY length: ${#SUPABASE_KEY}"
           export OPENWEATHERMAP_API_KEY="${OPENWEATHERMAP_API_KEY}"
-          export HOPSWORKS_API_KEY="${HOPSWORKS_API_KEY}"
-          export HOPSWORKS_PROJECT_NAME="${HOPSWORKS_PROJECT_NAME}"
+          export SUPABASE_URL="${SUPABASE_URL}"
+          export SUPABASE_KEY="${SUPABASE_KEY}"
           python -c "import os; print('Python sees OPENWEATHERMAP_API_KEY:', bool(os.getenv('OPENWEATHERMAP_API_KEY')))"
           python pipelines/feature_pipeline.py
       

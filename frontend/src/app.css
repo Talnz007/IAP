@@ -1,0 +1,71 @@
+:root {
+  /* Dark Academia Monochromatic Base */
+  --bg-base: oklch(0.2 0.01 250); /* Deep slate */
+  --bg-surface: oklch(0.25 0.01 250); /* Charcoal */
+  --bg-surface-elevated: oklch(0.3 0.01 250); /* Lighter charcoal */
+  
+  --text-primary: oklch(0.9 0.01 250);
+  --text-secondary: oklch(0.7 0.01 250);
+  --text-muted: oklch(0.5 0.01 250);
+  
+  --accent: oklch(0.7 0.08 70); /* Muted gold/bronze */
+  
+  --border-subtle: oklch(0.3 0.01 250);
+  --border-strong: oklch(0.4 0.01 250);
+
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: 'EB Garamond', 'Merriweather', serif; /* Dark academia flair */
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  margin-top: 0;
+  color: var(--text-primary);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Sharp elements, no rounded corners */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 1.5rem;
+  border-radius: 0; /* Sharp corners */
+}
+
+.data-value {
+  font-family: var(--font-mono);
+  font-size: 2.5rem;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.data-label {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
