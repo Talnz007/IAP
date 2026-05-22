@@ -1,0 +1,130 @@
+# Configuration Settings for AQI Predictor
+
+# API Configuration
+api:
+  openweathermap_key: ${OPENWEATHERMAP_API_KEY}
+  base_url: "http://api.openweathermap.org/data/2.5"
+  rate_limit: 60  # requests per minute
+  timeout: 30  # seconds
+
+# Cities to monitor
+cities:
+  - name: "Lahore"
+    lat: 31.5497
+    lon: 74.3436
+  - name: "Karachi"
+    lat: 24.8607
+    lon: 67.0011
+  - name: "Islamabad"
+    lat: 33.6844
+    lon: 73.0479
+  - name: "Peshawar"
+    lat: 34.0151
+    lon: 71.5249
+  - name: "Quetta"
+    lat: 30.1798
+    lon: 66.9750
+
+# Feature Store Configuration
+feature_store:
+  type: "local"  # Options: local, hopsworks
+  local:
+    path: "./data/features"
+  hopsworks:
+    project_name: ${HOPSWORKS_PROJECT}
+    api_key: ${HOPSWORKS_API_KEY}
+    feature_group_name: "aqi_features"
+    feature_group_version: 1
+
+# Data Configuration
+data:
+  raw_path: "./data/raw"
+  processed_path: "./data/processed"
+  backfill_path: "./data/backfill"
+  history_days: 30  # Days of historical data to maintain
+
+# Feature Engineering
+features:
+  lag_hours: [1, 2, 3, 6, 12, 24, 48, 72]
+  rolling_windows: [3, 6, 12, 24, 48, 72]
+  target_horizons: [1, 6, 12, 24, 48, 72]  # Forecast horizons in hours
+  pollutants:
+    - aqi
+    - pm2_5
+    - pm10
+    - no2
+    - so2
+    - co
+    - o3
+
+# Model Configuration
+model:
+  path: "./models"
+  registry_type: "local"  # Options: local, mlflow
+  mlflow:
+    tracking_uri: ${MLFLOW_TRACKING_URI}
+    experiment_name: "aqi_prediction"
+
+# Training Configuration
+training:
+  test_size: 0.2
+  validation_size: 0.1
+  random_state: 42
+  sklearn_models:
+    - random_forest
+    - ridge
+    - gradient_boosting
+    - elastic_net
+  deep_learning_models:
+    - mlp
+    - lstm
+  sequence_length: 72  # For deep learning models
+  epochs: 100
+  batch_size: 32
+  early_stopping_patience: 10
+
+# Evaluation Metrics
+evaluation:
+  primary_metric: "rmse"
+  metrics:
+    - rmse
+    - mae
+    - r2
+    - mape
+  thresholds:
+    rmse_max: 15.0
+    r2_min: 0.7
+
+# Application Configuration
+app:
+  streamlit:
+    port: 8501
+    host: "0.0.0.0"
+    theme: "light"
+  fastapi:
+    port: 8000
+    host: "0.0.0.0"
+    workers: 4
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/app.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+# Alerts Configuration
+alerts:
+  enabled: false
+  email:
+    smtp_server: ${SMTP_SERVER}
+    smtp_port: 587
+    sender: ${ALERT_EMAIL_SENDER}
+    recipients:
+      - ${ALERT_EMAIL_RECIPIENT}
+  slack:
+    webhook_url: ${SLACK_WEBHOOK_URL}
+  thresholds:
+    aqi_warning: 100
+    aqi_critical: 200
