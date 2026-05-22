@@ -988,9 +988,9 @@ SOFTWARE.
 
 ## 👨‍💻 Author
 
-**Muzammil Haider**
+**Talha Niazi**
 
-- GitHub: [@Haideransari444](https://github.com/Haideransari444)
+- GitHub: [@Haideransari444](https://github.com/Talnz007)
 - Project: Pearls Project - Islamabad AQI Predictor
 
 ---
