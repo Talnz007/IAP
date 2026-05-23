@@ -165,6 +165,24 @@ async def forecast(city: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/explain/{city}")
+async def explain(city: str):
+    """Get feature importances for the current prediction."""
+    try:
+        pred = get_predictor()
+        return pred.explain_prediction(city=city)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/accuracy/{city}")
+async def accuracy(city: str):
+    """Get historical prediction accuracy metrics."""
+    try:
+        pred = get_predictor()
+        return pred.get_accuracy_metrics(city=city, days=7)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/cities", response_model=List[str])
 async def get_cities():

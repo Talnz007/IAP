@@ -77,6 +77,21 @@ def run_feature_pipeline(cities: list = None):
         feature_store.save_features(df_features, 'aqi_features')
         logger.info(f"  ✓ Saved {len(df_features)} records")
         
+        # MLOps: Generate and log prediction for accuracy tracking
+        try:
+            from src.inference.predict import AQIPredictor
+            from datetime import timedelta
+            predictor = AQIPredictor()
+            logger.info("Generating predictions for MLOps tracking...")
+            
+            for city in cities:
+                result = predictor.predict(city=city)
+                target_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                predictor.log_prediction(city, result['predicted_aqi_24h'], target_date)
+                logger.info(f"  ✓ Logged 24h prediction for {city}")
+        except Exception as e:
+            logger.error(f"  ✗ Failed to log predictions: {e}")
+            
     else:
         logger.warning("No data to process")
     

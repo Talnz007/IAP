@@ -1,5 +1,6 @@
 <script lang="ts">
   import '../app.css';
+  import { base } from '$app/paths';
   let { children } = $props();
 </script>
 
@@ -7,7 +8,7 @@
   <header class="app-header">
     <h1>Islamabad AQI Predictor</h1>
     <nav>
-      <a href="/">Dashboard</a>
+      <a href="{base}/">Dashboard</a>
     </nav>
   </header>
 
