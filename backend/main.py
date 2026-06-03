@@ -76,8 +76,6 @@ predictors = {}
 
 def get_predictor(model_name: Optional[str] = None):
     """Get or create the predictor instance."""
-    global predictors
-    
     if model_name is None:
         try:
             from src.training.model_registry import get_model_registry
