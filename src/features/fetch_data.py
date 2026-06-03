@@ -98,31 +98,34 @@ class AQIDataFetcher:
         """
         lat, lon = self._get_coordinates(city, country)
         
-        url = f"{self.ONECALL_BASE}?lat={lat}&lon={lon}&appid={self.api_key}&units=metric"
+        url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={self.api_key}&units=metric"
         
         try:
             response = requests.get(url, timeout=30)
             response.raise_for_status()
             data = response.json()
             
-            current = data.get("current", {})
+            main = data.get("main", {})
+            wind = data.get("wind", {})
+            clouds = data.get("clouds", {})
+            
             return {
                 "city": city,
-                "timestamp": datetime.fromtimestamp(current.get("dt", 0)),
-                "unix_time": current.get("dt", 0),
+                "timestamp": datetime.fromtimestamp(data.get("dt", 0)),
+                "unix_time": data.get("dt", 0),
                 
                 # Weather features for ML model
-                "temp": current.get("temp"),
-                "feels_like": current.get("feels_like"),
-                "pressure": current.get("pressure"),
-                "humidity": current.get("humidity"),
-                "dew_point": current.get("dew_point"),
-                "uvi": current.get("uvi"),
-                "clouds": current.get("clouds"),
-                "visibility": current.get("visibility"),
-                "wind_speed": current.get("wind_speed"),
-                "wind_deg": current.get("wind_deg"),
-                "wind_gust": current.get("wind_gust", 0),
+                "temp": main.get("temp"),
+                "feels_like": main.get("feels_like"),
+                "pressure": main.get("pressure"),
+                "humidity": main.get("humidity"),
+                "dew_point": main.get("temp"), # Free tier doesn't have dew_point
+                "uvi": 5.0, # Free tier doesn't have UVI
+                "clouds": clouds.get("all"),
+                "visibility": data.get("visibility"),
+                "wind_speed": wind.get("speed"),
+                "wind_deg": wind.get("deg"),
+                "wind_gust": wind.get("gust", 0),
             }
             
         except requests.exceptions.RequestException as e:
