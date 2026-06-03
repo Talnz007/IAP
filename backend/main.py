@@ -38,6 +38,17 @@ class PredictionResponse(BaseModel):
     model_used: str
     aqi_category: str
     health_advisory: str
+    # Secondary Pollutants & Weather
+    temperature: Optional[float] = None
+    humidity: Optional[float] = None
+    pm2_5: Optional[float] = None
+    pm10: Optional[float] = None
+    co: Optional[float] = None
+    o3: Optional[float] = None
+    no2: Optional[float] = None
+    so2: Optional[float] = None
+    wind_speed: Optional[float] = None
+    clouds: Optional[float] = None
 
 
 class ForecastItem(BaseModel):
@@ -59,23 +70,36 @@ class HealthResponse(BaseModel):
     timestamp: str
 
 
-# Global predictor instance
-predictor = None
+# Global predictors cache
+predictors = {}
 
 
-def get_predictor():
+def get_predictor(model_name: Optional[str] = None):
     """Get or create the predictor instance."""
-    global predictor
-    if predictor is None:
+    global predictors
+    
+    if model_name is None:
+        try:
+            from src.training.model_registry import get_model_registry
+            registry = get_model_registry()
+            models = registry.list_models()
+            if models:
+                model_name = list(models.keys())[0]
+            else:
+                model_name = "random_forest"
+        except Exception:
+            model_name = "random_forest"
+            
+    if model_name not in predictors:
         try:
             from src.inference.predict import AQIPredictor
-            predictor = AQIPredictor()
+            predictors[model_name] = AQIPredictor(model_name=model_name)
         except Exception as e:
             raise HTTPException(
                 status_code=503,
-                detail=f"Model not available: {str(e)}"
+                detail=f"Model '{model_name}' not available: {str(e)}"
             )
-    return predictor
+    return predictors[model_name]
 
 
 @app.get("/", response_model=dict)
@@ -105,18 +129,19 @@ async def health_check():
 
 
 @app.get("/predict/{city}", response_model=PredictionResponse)
-async def predict(city: str):
+async def predict(city: str, model_name: Optional[str] = None):
     """
     Get AQI prediction for a city.
     
     Args:
         city: City name (e.g., Karachi, Lahore)
+        model_name: Optional specific model to use
         
     Returns:
         Prediction response with current and predicted AQI
     """
     try:
-        pred = get_predictor()
+        pred = get_predictor(model_name)
         result = pred.predict(city=city)
         
         return PredictionResponse(
@@ -126,7 +151,17 @@ async def predict(city: str):
             predicted_aqi_24h=result['predicted_aqi_24h'],
             model_used=result['model_used'],
             aqi_category=result['aqi_category'],
-            health_advisory=result['health_advisory']
+            health_advisory=result['health_advisory'],
+            temperature=result.get('temperature'),
+            humidity=result.get('humidity'),
+            pm2_5=result.get('pm2_5'),
+            pm10=result.get('pm10'),
+            co=result.get('co'),
+            o3=result.get('o3'),
+            no2=result.get('no2'),
+            so2=result.get('so2'),
+            wind_speed=result.get('wind_speed'),
+            clouds=result.get('clouds')
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -166,19 +201,19 @@ async def forecast(city: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/explain/{city}")
-async def explain(city: str):
+async def explain(city: str, model_name: Optional[str] = None):
     """Get feature importances for the current prediction."""
     try:
-        pred = get_predictor()
+        pred = get_predictor(model_name)
         return pred.explain_prediction(city=city)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/accuracy/{city}")
-async def accuracy(city: str):
+async def accuracy(city: str, model_name: Optional[str] = None):
     """Get historical prediction accuracy metrics."""
     try:
-        pred = get_predictor()
+        pred = get_predictor(model_name)
         return pred.get_accuracy_metrics(city=city, days=7)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -188,6 +223,43 @@ async def accuracy(city: str):
 async def get_cities():
     """Get list of supported cities."""
     return ["Karachi", "Lahore", "Islamabad", "Faisalabad", "Rawalpindi"]
+
+
+@app.get("/models")
+async def list_available_models():
+    """List available models and their metadata/metrics."""
+    try:
+        from src.training.model_registry import get_model_registry
+        registry = get_model_registry()
+        models = registry.list_models()
+        
+        allowed_models = {"random_forest", "xgboost", "lightgbm"}
+        
+        result = {}
+        for m_name in models.keys():
+            if m_name not in allowed_models:
+                continue
+                
+            try:
+                meta = registry.get_model_metadata(m_name)
+                metrics = meta.get("metrics", {})
+                result[m_name] = {
+                    "model_name": m_name,
+                    "version": meta.get("version"),
+                    "created_at": meta.get("created_at"),
+                    "rmse": metrics.get("rmse"),
+                    "r2": metrics.get("r2"),
+                    "mae": metrics.get("mae"),
+                    "mape": metrics.get("mape")
+                }
+            except Exception as e:
+                result[m_name] = {
+                    "model_name": m_name,
+                    "error": str(e)
+                }
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

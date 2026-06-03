@@ -21,7 +21,7 @@ logger = get_logger("training_pipeline")
 
 
 def run_training_pipeline(
-    target_col: str = 'target_24h',
+    target_col: str = 'aqi_target_24h',
     min_samples: int = 100,
     max_retries: int = 3,
     retry_delay: int = 30
@@ -70,6 +70,12 @@ def run_training_pipeline(
         # Prepare data
         logger.info("Preparing features and targets...")
         X_train, X_test, y_train, y_test, feature_names = prepare_data(df, target_col)
+        
+        total_valid_samples = len(X_train) + len(X_test)
+        if total_valid_samples < 10:
+            logger.warning(f"Insufficient valid data after dropping NaNs ({total_valid_samples} samples). Skipping training.")
+            return
+            
         logger.info(f"  ✓ Training samples: {len(X_train)}")
         logger.info(f"  ✓ Test samples: {len(X_test)}")
         logger.info(f"  ✓ Features: {len(feature_names)}")

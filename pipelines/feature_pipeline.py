@@ -81,14 +81,21 @@ def run_feature_pipeline(cities: list = None):
         try:
             from src.inference.predict import AQIPredictor
             from datetime import timedelta
-            predictor = AQIPredictor()
+            
+            allowed_models = ["random_forest", "xgboost", "lightgbm"]
             logger.info("Generating predictions for MLOps tracking...")
             
-            for city in cities:
-                result = predictor.predict(city=city)
-                target_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-                predictor.log_prediction(city, result['predicted_aqi_24h'], target_date)
-                logger.info(f"  ✓ Logged 24h prediction for {city}")
+            for model_name in allowed_models:
+                try:
+                    predictor = AQIPredictor(model_name=model_name)
+                    for city in cities:
+                        result = predictor.predict(city=city)
+                        target_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                        predictor.log_prediction(city, result['predicted_aqi_24h'], target_date)
+                        logger.info(f"  ✓ Logged 24h prediction for {city} using {model_name}")
+                except Exception as model_e:
+                    logger.warning(f"  ⚠ Failed to log prediction for {model_name}: {model_e}")
+                    
         except Exception as e:
             logger.error(f"  ✗ Failed to log predictions: {e}")
             

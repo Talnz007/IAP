@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { fade, fly } from 'svelte/transition';
-  import { spring } from 'svelte/motion';
-  import { MapLibre, Marker, Popup } from 'svelte-maplibre';
-  import { Wind, Droplets, Thermometer, AlertTriangle, Info, CloudFog, TrendingUp, Activity } from 'lucide-svelte';
-  import Particles from '@tsparticles/svelte';
-  import { loadSlim } from '@tsparticles/slim';
+  import { MapLibre, Marker, FillExtrusionLayer } from 'svelte-maplibre';
+  import { Wind, Droplets, Thermometer, AlertTriangle, Info, CloudFog, TrendingUp, Activity, LayoutGrid, LayoutList, Gauge, Zap } from 'lucide-svelte';
+  
+  import AQIGauge from '$lib/components/AQIGauge.svelte';
 
   // ─── State ───────────────────────────────────────────────────────────────────
   let mounted = $state(false);
@@ -14,35 +13,38 @@
 
   type PredictionResult = {
     city: string;
+    prediction_time: string;
     current_aqi: number | null;
     predicted_aqi_24h: number;
     aqi_category: string;
     health_advisory: string;
     model_used: string;
+    temperature: number | null;
+    humidity: number | null;
+    pm2_5: number | null;
+    pm10: number | null;
+    co: number | null;
+    o3: number | null;
+    no2: number | null;
+    so2: number | null;
+    wind_speed: number | null;
+    clouds: number | null;
   };
   
-  type AccuracyResult = {
-    accuracy_score: number | null;
-    history: { date: string; predicted: number; actual: number | null }[];
-  };
-
-  type ExplainResult = {
-    top_drivers: { feature: string; importance: number; current_value: number }[];
-  };
+  let modelsInfo = $state<any>(null);
+  let selectedModel = $state<string>('random_forest');
+  let viewMode = $state<'single' | 'compare'>('single');
+  let comparePredictions = $state<Record<string, PredictionResult | null>>({});
 
   let prediction = $state<PredictionResult | null>(null);
-  let accuracy = $state<AccuracyResult | null>(null);
-  let explanation = $state<ExplainResult | null>(null);
+  let explanation = $state<any | null>(null);
+  let accuracy = $state<any | null>(null);
   let error = $state<string | null>(null);
 
   const CITY = 'Islamabad';
   const LAT = 33.6844;
   const LNG = 73.0479;
   const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
-
-  // Spring-loaded values for smooth counting animation
-  const animatedAqi = spring(0, { stiffness: 0.1, damping: 0.6 });
-  const animatedScore = spring(0, { stiffness: 0.1, damping: 0.6 });
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
   function aqiColor(aqi: number | null): string {
@@ -52,31 +54,14 @@
     if (aqi <= 150) return '#fb923c';
     if (aqi <= 200) return '#f87171';
     if (aqi <= 300) return '#c084fc';
-    return '#f43f5e';
-  }
-
-  function aqiLabel(aqi: number | null): string {
-    if (aqi === null) return 'Unknown';
-    if (aqi <= 50)  return 'Good';
-    if (aqi <= 100) return 'Moderate';
-    if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
-    if (aqi <= 200) return 'Unhealthy';
-    if (aqi <= 300) return 'Very Unhealthy';
-    return 'Hazardous';
+    return '#881337';
   }
 
   function formatFeatureName(name: string): string {
     const map: Record<string, string> = {
-      'temp': 'Temperature',
-      'feels_like': 'Feels Like Temp',
-      'humidity': 'Humidity',
-      'pressure': 'Atmospheric Pressure',
-      'wind_speed': 'Wind Speed',
-      'pm2_5': 'PM2.5 Particles',
-      'pm10': 'PM10 Particles',
-      'aqi': 'Historical AQI',
-      'clouds': 'Cloud Cover',
-      'visibility': 'Visibility'
+      'temp': 'Temperature', 'feels_like': 'Feels Like', 'humidity': 'Humidity',
+      'pressure': 'Pressure', 'wind_speed': 'Wind Speed', 'pm2_5': 'PM2.5',
+      'pm10': 'PM10', 'aqi': 'AQI', 'clouds': 'Cloud Cover', 'visibility': 'Visibility'
     };
     return map[name] || name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   }
@@ -92,32 +77,35 @@
   // ─── API ─────────────────────────────────────────────────────────────────────
   const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-  async function fetchData() {
+  async function fetchModels() {
+    try {
+      const res = await fetch(`${apiBase}/models`);
+      if (res.ok) {
+        modelsInfo = await res.json();
+        if (modelsInfo && !modelsInfo[selectedModel]) {
+          selectedModel = Object.keys(modelsInfo)[0] || 'random_forest';
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to fetch models", e);
+    }
+  }
+
+  async function fetchSinglePrediction(model: string) {
     loading = true;
     error = null;
     try {
-      const [predRes, accRes, expRes] = await Promise.all([
-        fetch(`${apiBase}/predict/${CITY}`),
-        fetch(`${apiBase}/accuracy/${CITY}`),
-        fetch(`${apiBase}/explain/${CITY}`)
+      const [predRes, expRes, accRes] = await Promise.all([
+        fetch(`${apiBase}/predict/${CITY}?model_name=${model}`),
+        fetch(`${apiBase}/explain/${CITY}?model_name=${model}`),
+        fetch(`${apiBase}/accuracy/${CITY}?model_name=${model}`)
       ]);
 
       if (!predRes.ok) throw new Error(`API error ${predRes.status}`);
-      
       prediction = await predRes.json();
-      animatedAqi.set(prediction?.current_aqi ?? 0);
-
-      if (accRes.ok) {
-        accuracy = await accRes.json();
-        if (accuracy?.accuracy_score) {
-          animatedScore.set(accuracy.accuracy_score);
-        }
-      }
       
-      if (expRes.ok) {
-        explanation = await expRes.json();
-      }
-
+      if (expRes.ok) explanation = await expRes.json();
+      if (accRes.ok) accuracy = await accRes.json();
     } catch (e: any) {
       error = e.message ?? 'Unknown error';
     } finally {
@@ -125,245 +113,437 @@
     }
   }
 
+  let compareAccuracy = $state<Record<string, any>>({});
+
+  async function fetchComparePredictions() {
+    if (!modelsInfo) return;
+    loading = true;
+    const modelNames = Object.keys(modelsInfo);
+    for (const model of modelNames) {
+      try {
+        const [predRes, accRes] = await Promise.all([
+          fetch(`${apiBase}/predict/${CITY}?model_name=${model}`),
+          fetch(`${apiBase}/accuracy/${CITY}?model_name=${model}`)
+        ]);
+        
+        if (predRes.ok) {
+          comparePredictions[model] = await predRes.json();
+        }
+        if (accRes.ok) {
+          compareAccuracy[model] = await accRes.json();
+        }
+      } catch(e) {
+        console.error(e);
+      }
+    }
+    loading = false;
+  }
+
+  function switchViewMode(mode: 'single' | 'compare') {
+    viewMode = mode;
+    if (mode === 'single') fetchSinglePrediction(selectedModel);
+    else fetchComparePredictions();
+  }
+
+  function handleModelChange() {
+    if (viewMode === 'single') fetchSinglePrediction(selectedModel);
+  }
+
   onMount(async () => {
     mounted = true;
     try {
       const health = await fetch(`${apiBase}/health`);
       apiOnline = health.ok;
+      if (apiOnline) {
+        await fetchModels();
+        await fetchSinglePrediction(selectedModel);
+      }
     } catch {
       apiOnline = false;
     }
-    fetchData();
   });
 
-  // ─── Particles Config ────────────────────────────────────────────────────────
-  let particlesInit = async (engine: any) => {
-    await loadSlim(engine);
-  };
+  // ─── Map & Canvas Simulation ────────────────────────────────────────────────
+  let mapInstance: any = $state(null);
+  let canvasOverlay: HTMLCanvasElement | null = $state(null);
+  let animationFrameId: number;
+  let particles: any[] = [];
+  const NUM_PARTICLES = 250;
 
-  const particlesOptions = $derived({
-    fpsLimit: 60,
-    particles: {
-      color: { value: aqiColor(prediction?.current_aqi ?? null) },
-      move: {
-        direction: "right",
-        enable: true,
-        random: true,
-        speed: (prediction?.current_aqi ?? 50) > 150 ? 0.3 : 0.8, // Smog moves slow, clear air moves fast
-        straight: false,
-      },
-      number: {
-        density: { enable: true, area: 800 },
-        value: Math.min((prediction?.current_aqi ?? 50) * 0.8, 300), // More particles for worse AQI
-      },
-      opacity: {
-        value: { min: 0.1, max: 0.4 },
-      },
-      shape: { type: "circle" },
-      size: { value: { min: 1, max: 4 } },
-    },
-    detectRetina: true,
+  function initParticles() {
+    particles = [];
+    for (let i = 0; i < NUM_PARTICLES; i++) {
+      particles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: Math.random() * 2.5 + 1,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: (Math.random() - 0.5) * 1.5
+      });
+    }
+  }
+
+  function renderCanvas() {
+    if (!canvasOverlay || !mapInstance) return;
+    const ctx = canvasOverlay.getContext('2d');
+    if (!ctx) return;
+    
+    const rect = canvasOverlay.parentElement?.getBoundingClientRect();
+    if (rect && (canvasOverlay.width !== rect.width || canvasOverlay.height !== rect.height)) {
+      canvasOverlay.width = rect.width;
+      canvasOverlay.height = rect.height;
+    }
+
+    ctx.clearRect(0, 0, canvasOverlay.width, canvasOverlay.height);
+
+    const pm25 = prediction?.pm2_5 ?? 50;
+    const windSpeed = prediction?.wind_speed ?? 2;
+    const cloudCover = prediction?.clouds ?? 0;
+    
+    const densityRatio = Math.min(pm25 / 150, 1.0);
+    const particleOpacity = 0.15 + densityRatio * 0.5;
+    
+    // Particulate Haze
+    if (densityRatio > 0.2) {
+       const gradient = ctx.createRadialGradient(
+         canvasOverlay.width/2, canvasOverlay.height/2, 0, 
+         canvasOverlay.width/2, canvasOverlay.height/2, canvasOverlay.width
+       );
+       const hazeColor = pm25 > 200 ? 'rgba(136, 19, 55' : 'rgba(192, 132, 252'; 
+       gradient.addColorStop(0, `${hazeColor}, ${densityRatio * 0.25})`);
+       gradient.addColorStop(1, 'rgba(0,0,0,0)');
+       ctx.fillStyle = gradient;
+       ctx.fillRect(0,0,canvasOverlay.width, canvasOverlay.height);
+    }
+
+    // Dynamic Clouds
+    if (cloudCover > 10) {
+      const time = Date.now() * 0.00005 * Math.max(windSpeed, 1);
+      ctx.save();
+      for(let i=0; i<4; i++) {
+         const cx = ((time * 150 * (i+1)) % (canvasOverlay.width + 600)) - 300;
+         const cy = (Math.sin(time * 2 + i) * 100) + (canvasOverlay.height * 0.25 * i);
+         
+         const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 300);
+         grad.addColorStop(0, `rgba(255,255,255, ${0.08 * (cloudCover/100)})`);
+         grad.addColorStop(1, 'rgba(255,255,255,0)');
+         ctx.fillStyle = grad;
+         ctx.beginPath();
+         ctx.arc(cx, cy, 300, 0, Math.PI * 2);
+         ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Particles
+    ctx.fillStyle = `rgba(184, 169, 154, ${particleOpacity})`;
+    const speedMult = (pm25 > 150) ? 0.3 : 1.2; // heavy smog is stagnant
+    
+    for (let p of particles) {
+      p.x += p.vx * speedMult;
+      p.y += p.vy * speedMult;
+      
+      if (p.x < 0) p.x = canvasOverlay.width;
+      if (p.x > canvasOverlay.width) p.x = 0;
+      if (p.y < 0) p.y = canvasOverlay.height;
+      if (p.y > canvasOverlay.height) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function startAnimation() {
+    if (!particles.length) initParticles();
+    renderCanvas();
+    animationFrameId = requestAnimationFrame(startAnimation);
+  }
+
+  function handleMapLoad(e: any) {
+    const map = e?.detail?.map || e?.map || e;
+    if (!map || !map.getStyle) return;
+    mapInstance = map;
+    
+    map.on('move', renderCanvas);
+    startAnimation();
+  }
+
+  onDestroy(() => {
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
   });
-
 </script>
 
 <svelte:head>
-  <title>AQI Observatory — Islamabad</title>
+  <title>Urban Intel | Islamabad AQI</title>
 </svelte:head>
 
 {#if mounted}
-  <!-- Atmospheric Background -->
-  <div class="particles-bg" in:fade={{ duration: 2000 }}>
-    <Particles id="tsparticles" options={particlesOptions} particlesInit={particlesInit} />
-  </div>
-
   <div class="app-wrapper">
     <!-- ── Header ─────────────────────────────────────────────────────────────── -->
-    <header in:fade={{ duration: 900, delay: 100 }} class="observatory-header">
+    <header in:fade={{ duration: 900 }} class="observatory-header">
       <div class="header-inner">
         <div class="wordmark">
           <Activity size={24} color="var(--accent)" />
-          <span>AQI Observatory</span>
+          <span>Urban Intel</span>
         </div>
-        <div class="status-pill" class:online={apiOnline}>
-          <span class="dot"></span>
-          <span>{apiOnline ? 'Observatory Online' : 'Backend Offline'}</span>
+        
+        <div class="header-controls">
+          <div class="view-toggles">
+            <button class:active={viewMode === 'single'} onclick={() => switchViewMode('single')} title="Single Model View">
+              <LayoutGrid size={16} /> Single
+            </button>
+            <button class:active={viewMode === 'compare'} onclick={() => switchViewMode('compare')} title="Multi-Model Comparison">
+              <LayoutList size={16} /> Compare
+            </button>
+          </div>
+
+          <div class="status-pill" class:online={apiOnline}>
+            <span class="dot"></span>
+            <span>{apiOnline ? 'Live Data Feed' : 'Offline'}</span>
+          </div>
         </div>
       </div>
 
       <div class="hero-text">
         <h1>Islamabad Atmosphere</h1>
         <p class="subtitle">
-          Real-time monitoring, MLOps performance tracking, and explainable AI 
-          for particulate matter intelligence.
+          Next-generation environmental intelligence. Real-time geospatial tracking and high-fidelity multi-model AQI predictions.
         </p>
       </div>
     </header>
 
-    <!-- ── Main grid ──────────────────────────────────────────────────────────── -->
     <main class="main-grid">
-
       <!-- LEFT COLUMN -->
       <div class="left-col">
-        
-        <!-- Live Map & Primary Metric -->
+        <!-- 3D Map Simulation -->
         <section in:fly={{ y: 20, duration: 800, delay: 200 }} class="map-section card">
           <div class="map-header">
-            <h2><CloudFog size={16}/> Live Location</h2>
-            {#if prediction}
-              <span class="aqi-pill" style="background:{aqiColor(prediction.current_aqi)}22; color:{aqiColor(prediction.current_aqi)}; border-color:{aqiColor(prediction.current_aqi)}55">
-                AQI {$animatedAqi.toFixed(0)} · {aqiLabel(prediction.current_aqi)}
-              </span>
+            <h2><CloudFog size={16}/> Geospatial Simulation</h2>
+            {#if viewMode === 'single' && modelsInfo}
+              <select bind:value={selectedModel} onchange={handleModelChange} class="model-select">
+                {#each Object.keys(modelsInfo) as m}
+                  <option value={m}>{m.replace('_', ' ').toUpperCase()}</option>
+                {/each}
+              </select>
             {/if}
           </div>
+          
           <div class="map-container">
             <MapLibre
               style={MAP_STYLE}
               center={[LNG, LAT]}
-              zoom={10.5}
+              zoom={13.5}
+              pitch={65}
+              bearing={-20}
               class="map"
               attributionControl={false}
+              onload={handleMapLoad}
             >
-              <Marker lngLat={[LNG, LAT]}>
-                <div
-                  class="map-marker pulse-marker"
-                  style="--aqi-color: {aqiColor(prediction?.current_aqi ?? null)}"
-                >
-                  <span class="marker-label">
-                    {$animatedAqi.toFixed(0)}
-                  </span>
-                </div>
-              </Marker>
+              <FillExtrusionLayer
+                id="3d-buildings"
+                source="carto"
+                sourceLayer="building"
+                minzoom={13}
+                paint={{
+                  'fill-extrusion-color': '#2C2B29',
+                  'fill-extrusion-height': [
+                    'coalesce', 
+                    ['get', 'height'], 
+                    ['get', 'render_height'], 
+                    25 
+                  ],
+                  'fill-extrusion-base': [
+                    'coalesce',
+                    ['get', 'min_height'],
+                    ['get', 'render_min_height'],
+                    0
+                  ],
+                  'fill-extrusion-opacity': 0.8
+                }}
+                beforeLayerType="symbol"
+              />
+
+              {#if prediction}
+                <Marker lngLat={[LNG, LAT]}>
+                  <div class="map-marker pulse-marker" style="--aqi-color: {aqiColor(prediction.current_aqi)}">
+                    <span class="marker-label">{Math.round(prediction.current_aqi || 0)}</span>
+                  </div>
+                </Marker>
+              {/if}
             </MapLibre>
+            
+            <!-- Custom Canvas Overlay for Weather/Particles -->
+            <canvas bind:this={canvasOverlay} class="simulation-canvas"></canvas>
           </div>
-          
-          {#if prediction}
-            <div class="advisory-box" style="border-left-color: {aqiColor(prediction.current_aqi)}">
-              <Info size={20} color={aqiColor(prediction.current_aqi)} />
-              <p>{prediction.health_advisory}</p>
-            </div>
-          {/if}
         </section>
 
-        <!-- Explainable AI (Drivers) -->
-        {#if explanation && explanation.top_drivers.length > 0}
-          <section in:fly={{ y: 20, duration: 800, delay: 400 }} class="xai-section card">
-            <div class="card-header">
-              <h2><Activity size={18}/> Air Quality Drivers</h2>
-              <span class="header-tag">Explainable AI</span>
+        <!-- Secondary Environmental Metrics -->
+        {#if viewMode === 'single' && prediction && !loading}
+          <section in:fly={{ y: 20, duration: 800, delay: 300 }} class="metrics-grid">
+            <div class="metric-box">
+              <div class="metric-title"><Droplets size={14}/> PM2.5</div>
+              <div class="metric-val">{prediction.pm2_5?.toFixed(1) || '--'} <span class="unit">μg/m³</span></div>
             </div>
-            <p class="section-desc">Machine learning feature importance driving the current prediction.</p>
-            
-            <div class="drivers-list">
-              {#each explanation.top_drivers.slice(0, 5) as driver}
-                {@const Icon = getFeatureIcon(driver.feature)}
-                <div class="driver-item">
-                  <div class="driver-info">
-                    <Icon size={16} color="var(--text-muted)" />
-                    <span class="driver-name">{formatFeatureName(driver.feature)}</span>
-                    <span class="driver-val">{driver.current_value.toFixed(1)}</span>
-                  </div>
-                  <div class="importance-bar-bg">
-                    <div class="importance-bar-fill" style="width: {Math.min(driver.importance * 100 * 5, 100)}%; background: var(--accent);"></div>
-                  </div>
-                </div>
-              {/each}
+            <div class="metric-box">
+              <div class="metric-title"><Droplets size={14}/> PM10</div>
+              <div class="metric-val">{prediction.pm10?.toFixed(1) || '--'} <span class="unit">μg/m³</span></div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-title"><CloudFog size={14}/> CO</div>
+              <div class="metric-val">{prediction.co?.toFixed(1) || '--'} <span class="unit">μg/m³</span></div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-title"><CloudFog size={14}/> NO2</div>
+              <div class="metric-val">{prediction.no2?.toFixed(1) || '--'} <span class="unit">μg/m³</span></div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-title"><CloudFog size={14}/> SO2</div>
+              <div class="metric-val">{prediction.so2?.toFixed(1) || '--'} <span class="unit">μg/m³</span></div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-title"><CloudFog size={14}/> O3</div>
+              <div class="metric-val">{prediction.o3?.toFixed(1) || '--'} <span class="unit">μg/m³</span></div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-title"><Thermometer size={14}/> Temp</div>
+              <div class="metric-val">{prediction.temperature?.toFixed(1) || '--'} <span class="unit">°C</span></div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-title"><Wind size={14}/> Wind</div>
+              <div class="metric-val">{prediction.wind_speed?.toFixed(1) || '--'} <span class="unit">m/s</span></div>
             </div>
           </section>
         {/if}
       </div>
 
-      <!-- RIGHT COLUMN (MLOps) -->
+      <!-- RIGHT COLUMN -->
       <div class="right-col">
-        
         {#if loading}
           <div in:fade class="card loading-card">
             <div class="loading-spinner"></div>
-            <p>Analyzing atmospheric data…</p>
+            <p>Evaluating atmospheric models…</p>
           </div>
         {:else if error}
           <div in:fade class="card error-card">
             <AlertTriangle size={32} color="#f87171" />
             <p>{error}</p>
-            <button class="retry-btn" onclick={() => fetchData()}>Retry</button>
           </div>
-        {:else if prediction}
-          
-          <!-- 24h Forecast -->
-          <div in:fly={{ y: 16, duration: 700, delay: 300 }} class="card metric-card">
-            <div class="card-header">
-              <h2><TrendingUp size={18}/> 24h Prediction</h2>
-            </div>
-            <div class="data-value aqi-value" style="color: {aqiColor(prediction.predicted_aqi_24h)}">
-              {prediction.predicted_aqi_24h.toFixed(1)}
-            </div>
-            <span class="aqi-category-badge"
-              style="background:{aqiColor(prediction.predicted_aqi_24h)}22; color:{aqiColor(prediction.predicted_aqi_24h)}; border-color:{aqiColor(prediction.predicted_aqi_24h)}44">
-              {aqiLabel(prediction.predicted_aqi_24h)}
-            </span>
+        {:else if viewMode === 'single' && prediction}
+          <!-- Radial Gauges -->
+          <div class="gauges-container" in:fly={{ y: 16, duration: 700, delay: 300 }}>
+            <AQIGauge aqi={prediction.current_aqi} label="NOW" title="Live Observation" />
+            <AQIGauge aqi={prediction.predicted_aqi_24h} label="PREDICTED" title="24h Forecast" />
           </div>
 
-          <!-- MLOps Accuracy Tracking -->
-          {#if accuracy && accuracy.history.length > 0}
-            <div in:fly={{ y: 16, duration: 700, delay: 450 }} class="card chart-card">
+          {#if prediction.health_advisory}
+            <div class="advisory-box" style="border-left-color: {aqiColor(prediction.current_aqi)}">
+              <Info size={20} color={aqiColor(prediction.current_aqi)} />
+              <p>{prediction.health_advisory}</p>
+            </div>
+          {/if}
+
+          <!-- Explainable AI (Drivers) -->
+          {#if explanation && explanation.top_drivers}
+            <section in:fly={{ y: 20, duration: 800, delay: 400 }} class="xai-section card">
               <div class="card-header">
-                <h2>Model Accuracy</h2>
-                <div class="accuracy-score">
-                  {$animatedScore.toFixed(1)}%
-                </div>
+                <h2><Activity size={18}/> Feature Importance</h2>
+                <span class="header-tag">XAI</span>
               </div>
-              <p class="section-desc">Predicted vs Actual AQI over the last 7 days.</p>
-              
-              <!-- History List (Fallback for simple UI) -->
-              <div class="history-list">
-                {#each accuracy.history.slice(-5).reverse() as day}
-                  <div class="history-row">
-                    <span class="hist-date">{day.date.slice(5)}</span>
-                    <div class="hist-bars">
-                      <div class="hist-metric">
-                        <span class="hist-label">Pred</span>
-                        <span class="hist-val" style="color: var(--accent)">{day.predicted.toFixed(0)}</span>
-                      </div>
-                      <div class="hist-metric">
-                        <span class="hist-label">Act</span>
-                        <span class="hist-val" style="color: {day.actual ? aqiColor(day.actual) : 'var(--text-muted)'}">
-                          {day.actual ? day.actual.toFixed(0) : '—'}
-                        </span>
-                      </div>
+              <div class="drivers-list">
+                {#each explanation.top_drivers.slice(0, 4) as driver}
+                  {@const Icon = getFeatureIcon(driver.feature)}
+                  <div class="driver-item">
+                    <div class="driver-info">
+                      <Icon size={14} color="var(--text-muted)" />
+                      <span class="driver-name">{formatFeatureName(driver.feature)}</span>
+                      <span class="driver-val">{driver.current_value.toFixed(1)}</span>
+                    </div>
+                    <div class="importance-bar-bg">
+                      <div class="importance-bar-fill" style="width: {Math.min(driver.importance * 100, 100)}%; background: var(--accent);"></div>
                     </div>
                   </div>
                 {/each}
               </div>
-            </div>
+            </section>
           {/if}
 
+          <!-- Model Accuracy -->
+          {#if accuracy && accuracy.accuracy_score !== null}
+            <section in:fly={{ y: 20, duration: 800, delay: 500 }} class="accuracy-section card">
+              <div class="card-header">
+                <h2><TrendingUp size={18}/> Model Performance</h2>
+                <span class="header-tag">7-Day</span>
+              </div>
+              <div class="accuracy-content">
+                <div class="acc-score">
+                  <span class="acc-val">{accuracy.accuracy_score.toFixed(1)}%</span>
+                  <span class="acc-label">Avg. Accuracy</span>
+                </div>
+                <div class="history-list">
+                  {#each accuracy.history as h}
+                  <div class="history-item">
+                    <span class="date">{new Date(h.date).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}</span>
+                    <span class="val pred" title="Predicted">P: {h.predicted.toFixed(0)}</span>
+                    <span class="val act" title="Actual">A: {h.actual ? h.actual.toFixed(0) : '--'}</span>
+                  </div>
+                  {/each}
+                </div>
+              </div>
+            </section>
+          {/if}
+          
+        {:else if viewMode === 'compare'}
+          <!-- Multi-Model Comparison -->
+          <div class="compare-grid" in:fade>
+            {#each Object.entries(modelsInfo) as [mName, mData]: any}
+              {@const p = comparePredictions[mName]}
+              <div class="compare-card card" class:highlight={mName === 'random_forest'}>
+                <div class="compare-header">
+                  <h3>{mName.replace('_', ' ').toUpperCase()}</h3>
+                  {#if mName === 'random_forest'}<span class="badge">Ensemble</span>{/if}
+                </div>
+                
+                <div class="compare-metrics">
+                  <div class="c-metric">
+                    <span>Validation R²</span>
+                    <strong>{mData.r2 ? mData.r2.toFixed(3) : '--'}</strong>
+                  </div>
+                  <div class="c-metric">
+                    <span>7-Day Accuracy</span>
+                    <strong>{compareAccuracy[mName]?.accuracy_score ? `${compareAccuracy[mName].accuracy_score.toFixed(1)}%` : '--'}</strong>
+                  </div>
+                </div>
+
+                <div class="compare-prediction">
+                  <span>24h Forecast</span>
+                  {#if p}
+                    <div class="c-aqi" style="color: {aqiColor(p.predicted_aqi_24h)}">
+                      {p.predicted_aqi_24h.toFixed(1)}
+                    </div>
+                  {:else}
+                    <div class="c-aqi">--</div>
+                  {/if}
+                </div>
+              </div>
+            {/each}
+          </div>
         {/if}
       </div>
     </main>
 
     <footer in:fade={{ duration: 600, delay: 800 }} class="observatory-footer">
-      <p>10Pearls Capstone · Data via OpenAQ · Predictions via Random Forest ML</p>
+      <p>Urban Intel GeoAI Pipeline · High-Fidelity Svelte 5 & FastAPI Framework</p>
     </footer>
   </div>
 {/if}
 
 <style>
-  /* ── Layout & Theme ──────────────────────────────────────────────────────── */
   :global(body) {
     background-color: var(--bg-base, #111315);
     color: var(--text-primary, #E6E4D9);
     margin: 0;
     font-family: 'Inter', system-ui, sans-serif;
-  }
-
-  .particles-bg {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 0;
-    pointer-events: none;
   }
 
   .app-wrapper {
@@ -396,23 +576,37 @@
     letter-spacing: 0.04em;
   }
 
-  .hero-text {
-    text-align: left;
-    max-width: 800px;
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
   }
 
-  .hero-text h1 {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(2rem, 4vw, 3.5rem);
-    margin-bottom: 0.5rem;
-    font-weight: 500;
+  .view-toggles {
+    display: flex;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    overflow: hidden;
   }
 
-  .subtitle {
-    color: var(--text-secondary);
-    font-size: 1.05rem;
-    line-height: 1.6;
-    margin: 0;
+  .view-toggles button {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.3s;
+  }
+
+  .view-toggles button.active {
+    background: var(--border-strong);
+    color: var(--text-primary);
   }
 
   .status-pill {
@@ -441,13 +635,27 @@
     box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
   }
 
-  /* ── Grid ────────────────────────────────────────────────────────────────── */
+  .hero-text h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+
+  .subtitle {
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+    line-height: 1.6;
+    margin: 0;
+    max-width: 800px;
+  }
+
   .main-grid {
     max-width: 1200px;
     margin: 0 auto;
     padding: 1.5rem 2rem 3rem;
     display: grid;
-    grid-template-columns: 1fr 380px;
+    grid-template-columns: 1fr 400px;
     gap: 1.5rem;
     align-items: start;
   }
@@ -462,7 +670,6 @@
     gap: 1.5rem;
   }
 
-  /* ── Cards Shared ────────────────────────────────────────────────────────── */
   .card {
     background: rgba(28, 32, 36, 0.6);
     backdrop-filter: blur(12px);
@@ -471,11 +678,150 @@
     border-radius: 8px;
   }
 
+  /* Map Container */
+  .map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .map-header h2 {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .model-select {
+    background: var(--bg-base);
+    color: var(--text-primary);
+    border: 1px solid var(--border-strong);
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    outline: none;
+  }
+
+  .map-container {
+    height: 480px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border-subtle);
+    position: relative;
+  }
+
+  :global(.map) { width: 100%; height: 100%; }
+
+  .simulation-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let map events pass through */
+    z-index: 2;
+  }
+
+  .map-marker {
+    width: 44px;
+    height: 44px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    background: var(--bg-surface, #1C2024);
+    border: 2px solid var(--aqi-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 24px color-mix(in srgb, var(--aqi-color) 40%, transparent), 0 4px 12px rgba(0,0,0,0.5);
+  }
+
+  .marker-label {
+    transform: rotate(45deg);
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  /* Secondary Metrics Grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  @media (max-width: 600px) {
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .metric-box {
+    background: rgba(28, 32, 36, 0.4);
+    border: 1px solid var(--border-subtle);
+    padding: 1rem;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .metric-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+  }
+
+  .metric-val {
+    font-family: var(--font-mono);
+    font-size: 1.2rem;
+    color: var(--text-primary);
+  }
+
+  .metric-val .unit {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+
+  /* Gauges & XAI */
+  .gauges-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .advisory-box {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(0,0,0,0.2);
+    border-left: 3px solid;
+    border-radius: 4px;
+    margin-top: 1.5rem;
+  }
+
+  .advisory-box p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
+
   .card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
   }
 
   .card-header h2 {
@@ -499,91 +845,6 @@
     border-radius: 4px;
   }
 
-  .section-desc {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin-top: 0;
-    margin-bottom: 1.5rem;
-  }
-
-  /* ── Map ─────────────────────────────────────────────────────────────────── */
-  .map-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-  }
-
-  .map-header h2 {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-weight: 600;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .map-container {
-    height: 380px;
-    border-radius: 6px;
-    overflow: hidden;
-    border: 1px solid var(--border-subtle);
-    margin-bottom: 1rem;
-  }
-
-  :global(.map) { width: 100%; height: 100%; }
-
-  .map-marker {
-    width: 44px;
-    height: 44px;
-    border-radius: 50% 50% 50% 0;
-    transform: rotate(-45deg);
-    background: var(--bg-surface, #1C2024);
-    border: 2px solid var(--aqi-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 24px color-mix(in srgb, var(--aqi-color) 40%, transparent), 0 4px 12px rgba(0,0,0,0.5);
-  }
-
-  .marker-label {
-    transform: rotate(45deg);
-    font-family: 'Playfair Display', serif;
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .advisory-box {
-    display: flex;
-    gap: 1rem;
-    padding: 1rem;
-    background: rgba(0,0,0,0.2);
-    border-left: 3px solid;
-    border-radius: 4px;
-    margin-top: 1rem;
-  }
-
-  .advisory-box p {
-    margin: 0;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    color: var(--text-primary);
-  }
-
-  .aqi-pill {
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.3rem 0.8rem;
-    border-radius: 12px;
-    border: 1px solid;
-    letter-spacing: 0.03em;
-  }
-
-  /* ── Explainable AI (XAI) ────────────────────────────────────────────────── */
   .drivers-list {
     display: flex;
     flex-direction: column;
@@ -627,83 +888,160 @@
     transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  /* ── Metrics ─────────────────────────────────────────────────────────────── */
-  .aqi-value {
-    font-family: 'Playfair Display', serif;
-    font-size: 4rem;
-    line-height: 1;
-    margin: 1rem 0 0.5rem;
+  /* Accuracy Section */
+  .accuracy-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
   }
 
-  .aqi-category-badge {
-    display: inline-block;
-    font-size: 0.75rem;
-    letter-spacing: 0.04em;
-    padding: 0.25rem 0.65rem;
-    border-radius: 4px;
-    border: 1px solid;
-    width: fit-content;
-    font-weight: 600;
+  .acc-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(0,0,0,0.2);
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
   }
 
-  /* ── MLOps Accuracy ──────────────────────────────────────────────────────── */
-  .accuracy-score {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.2rem;
+  .acc-val {
+    font-family: var(--font-serif);
+    font-size: 2.5rem;
     color: #4ade80;
-    font-weight: 600;
+    line-height: 1;
+  }
+
+  .acc-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.25rem;
   }
 
   .history-list {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
-  .history-row {
+  .history-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--border-subtle);
-  }
-  
-  .history-row:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
-  }
-
-  .hist-date {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.8rem;
+    padding: 0.4rem 0.5rem;
+    background: rgba(255,255,255,0.03);
+    border-radius: 4px;
+  }
+
+  .history-item .date {
     color: var(--text-muted);
+    flex: 1;
   }
 
-  .hist-bars {
-    display: flex;
-    gap: 1.5rem;
+  .history-item .val {
+    width: 60px;
+    text-align: right;
   }
 
-  .hist-metric {
+  .history-item .pred {
+    color: var(--text-primary);
+  }
+
+  .history-item .act {
+    color: var(--accent);
+  }
+
+  /* Compare Mode */
+  .compare-grid {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    gap: 1rem;
   }
 
-  .hist-label {
-    font-size: 0.65rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
+  .compare-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  .compare-card.highlight {
+    border-color: var(--accent);
+    background: rgba(184, 169, 154, 0.05);
+  }
+
+  .compare-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 0.5rem;
+  }
+
+  .compare-header h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-family: var(--font-mono);
     letter-spacing: 0.05em;
   }
 
-  .hist-val {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.1rem;
-    font-weight: 600;
+  .badge {
+    font-size: 0.65rem;
+    background: var(--accent);
+    color: var(--bg-base);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 700;
   }
 
-  /* ── Loading & Error ─────────────────────────────────────────────────────── */
+  .compare-metrics {
+    display: flex;
+    gap: 2rem;
+  }
+
+  .c-metric {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .c-metric span {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .c-metric strong {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+
+  .compare-prediction {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+    background: rgba(0,0,0,0.2);
+    padding: 0.75rem;
+    border-radius: 6px;
+  }
+
+  .compare-prediction span {
+    font-size: 0.8rem;
+    color: var(--text-primary);
+  }
+
+  .c-aqi {
+    font-family: var(--font-serif);
+    font-size: 1.8rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
   .loading-card, .error-card {
     align-items: center;
     justify-content: center;
@@ -718,22 +1056,11 @@
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin-bottom: 1rem;
+    margin: 0 auto 1rem;
   }
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .retry-btn {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid var(--border-strong);
-    color: white;
-    padding: 0.4rem 1.1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: 1rem;
-  }
-
-  /* ── Footer ──────────────────────────────────────────────────────────────── */
   .observatory-footer {
     text-align: center;
     padding: 2rem;

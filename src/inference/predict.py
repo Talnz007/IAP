@@ -84,8 +84,8 @@ class AQIPredictor:
         if 'city' in df.columns:
             df = df[df['city'] == city]
         
-        # Sort by timestamp and get latest
-        df = df.sort_values('timestamp').tail(1)
+        # Sort by timestamp
+        df = df.sort_values('timestamp')
         
         return df
     
@@ -103,13 +103,42 @@ class AQIPredictor:
         if features is None:
             features = self.get_latest_features(city)
         
-        # Process features if needed
-        if 'hour' not in features.columns:
-            features, feature_cols, _ = compute_all_features(features)
-        else:
-            exclude_cols = ['timestamp', 'city']
-            target_cols = [col for col in features.columns if '_target_' in col]
-            feature_cols = [col for col in features.columns if col not in exclude_cols + target_cols]
+        # Better fallback values
+        if 'visibility' not in features.columns:
+            features['visibility'] = 10000.0
+        if 'clouds' not in features.columns:
+            features['clouds'] = 0.0
+        if 'uvi' not in features.columns:
+            features['uvi'] = 5.0
+        if 'dew_point' not in features.columns:
+            features['dew_point'] = features['temperature'] if 'temperature' in features.columns else 15.0
+        if 'feels_like' not in features.columns:
+            features['feels_like'] = features['temperature'] if 'temperature' in features.columns else 25.0
+            
+        # Handle column naming differences between DB and training data
+        if 'temperature' in features.columns and 'temp' not in features.columns:
+            features = features.rename(columns={'temperature': 'temp'})
+                
+        core_cols = ['temp', 'humidity', 'pressure', 'wind_speed', 'wind_deg', 'feels_like', 'clouds', 'visibility', 'dew_point', 'uvi']
+        for col in core_cols:
+            if col not in features.columns:
+                features[col] = 0.0
+                
+        # Fill missing values from DB (due to cron failing to fetch weather)
+        features['temp'] = pd.to_numeric(features['temp'], errors='coerce').fillna(25.0)
+        features['humidity'] = pd.to_numeric(features['humidity'], errors='coerce').fillna(50.0)
+        features['pressure'] = pd.to_numeric(features['pressure'], errors='coerce').fillna(1013.0)
+        features['wind_speed'] = pd.to_numeric(features['wind_speed'], errors='coerce').fillna(2.0)
+        features['wind_deg'] = pd.to_numeric(features['wind_deg'], errors='coerce').fillna(0.0)
+        
+        for col in core_cols:
+            features[col] = pd.to_numeric(features[col], errors='coerce').fillna(0.0)
+                
+        # Always recompute features to get the full 187 set
+        features, feature_cols, _ = compute_all_features(features)
+            
+        # We only want to predict for the latest row
+        features = features.tail(1)
         
         # Fill NaN values with 0 — weather/lag columns may be null when
         # the OpenWeatherMap API is unavailable or no historical lag data exists.
@@ -145,7 +174,18 @@ class AQIPredictor:
             'predicted_aqi_24h': float(prediction),
             'model_used': self.model_name,
             'aqi_category': self._get_aqi_category(prediction),
-            'health_advisory': self._get_health_advisory(prediction)
+            'health_advisory': self._get_health_advisory(prediction),
+            # Weather & Pollutants
+            'temperature': float(features['temp'].iloc[-1]) if 'temp' in features.columns else None,
+            'humidity': float(features['humidity'].iloc[-1]) if 'humidity' in features.columns else None,
+            'pm2_5': float(features['pm2_5'].iloc[-1]) if 'pm2_5' in features.columns else None,
+            'pm10': float(features['pm10'].iloc[-1]) if 'pm10' in features.columns else None,
+            'co': float(features['co'].iloc[-1]) if 'co' in features.columns else None,
+            'o3': float(features['o3'].iloc[-1]) if 'o3' in features.columns else None,
+            'no2': float(features['no2'].iloc[-1]) if 'no2' in features.columns else None,
+            'so2': float(features['so2'].iloc[-1]) if 'so2' in features.columns else None,
+            'wind_speed': float(features['wind_speed'].iloc[-1]) if 'wind_speed' in features.columns else None,
+            'clouds': float(features['clouds'].iloc[-1]) if 'clouds' in features.columns else None,
         }
     
     def predict_next_3_days(self, city: str = "Karachi") -> List[Dict[str, Any]]:
@@ -199,12 +239,38 @@ class AQIPredictor:
         if features is None:
             features = self.get_latest_features(city)
             
-        if 'hour' not in features.columns:
-            features, feature_cols, _ = compute_all_features(features)
-        else:
-            exclude_cols = ['timestamp', 'city']
-            target_cols = [col for col in features.columns if '_target_' in col]
-            feature_cols = [col for col in features.columns if col not in exclude_cols + target_cols]
+        if 'visibility' not in features.columns:
+            features['visibility'] = 10000.0
+        if 'clouds' not in features.columns:
+            features['clouds'] = 0.0
+        if 'uvi' not in features.columns:
+            features['uvi'] = 5.0
+        if 'dew_point' not in features.columns:
+            features['dew_point'] = features['temperature'] if 'temperature' in features.columns else 15.0
+        if 'feels_like' not in features.columns:
+            features['feels_like'] = features['temperature'] if 'temperature' in features.columns else 25.0
+            
+        if 'temperature' in features.columns and 'temp' not in features.columns:
+            features = features.rename(columns={'temperature': 'temp'})
+                
+        core_cols = ['temp', 'humidity', 'pressure', 'wind_speed', 'wind_deg', 'feels_like', 'clouds', 'visibility', 'dew_point', 'uvi']
+        for col in core_cols:
+            if col not in features.columns:
+                features[col] = 0.0
+                
+        features['temp'] = pd.to_numeric(features['temp'], errors='coerce').fillna(25.0)
+        features['humidity'] = pd.to_numeric(features['humidity'], errors='coerce').fillna(50.0)
+        features['pressure'] = pd.to_numeric(features['pressure'], errors='coerce').fillna(1013.0)
+        features['wind_speed'] = pd.to_numeric(features['wind_speed'], errors='coerce').fillna(2.0)
+        features['wind_deg'] = pd.to_numeric(features['wind_deg'], errors='coerce').fillna(0.0)
+        
+        for col in core_cols:
+            features[col] = pd.to_numeric(features[col], errors='coerce').fillna(0.0)
+                
+        features, feature_cols, _ = compute_all_features(features)
+            
+        # We only want to explain the latest row
+        features = features.tail(1)
             
         features = features.fillna(0)
         
@@ -215,11 +281,18 @@ class AQIPredictor:
                 features = pd.concat([features, missing_df], axis=1)
             feature_cols = self.expected_feature_names
             
-        # Get global feature importances from the model (assuming Random Forest)
+        # Extract base model from pipeline if necessary
+        base_model = self.model.named_steps['model'] if hasattr(self.model, 'named_steps') else self.model
+
         importances = []
-        if hasattr(self.model, 'feature_importances_'):
-            fi = self.model.feature_importances_
+        if hasattr(base_model, 'feature_importances_'):
+            fi = base_model.feature_importances_
+        elif hasattr(base_model, 'coef_'):
+            fi = np.abs(base_model.coef_)
+        else:
+            fi = []
             
+        if len(fi) > 0:
             for i, col in enumerate(feature_cols):
                 if i < len(fi):
                     val = features[col].iloc[-1]
@@ -230,6 +303,12 @@ class AQIPredictor:
                             "importance": float(fi[i]),
                             "current_value": float(val) if pd.notnull(val) else 0.0
                         })
+                    
+            # Normalize importances so the UI bar renders nicely (0 to 1 range)
+            max_imp = max((x["importance"] for x in importances), default=1.0)
+            if max_imp > 0:
+                for x in importances:
+                    x["importance"] = x["importance"] / max_imp
                     
             importances.sort(key=lambda x: x["importance"], reverse=True)
             
@@ -251,6 +330,7 @@ class AQIPredictor:
             preds_res = client.table('predictions_log') \
                 .select('*') \
                 .eq('city', city) \
+                .eq('model_used', self.model_name) \
                 .gte('target_date', start_date) \
                 .order('target_date') \
                 .execute()
@@ -266,6 +346,18 @@ class AQIPredictor:
             predictions = preds_res.data
             actuals = actuals_res.data
             
+            # Group predictions by date (take daily average)
+            daily_preds = {}
+            for row in predictions:
+                if row.get('target_date') and row.get('predicted_aqi') is not None:
+                    date = row['target_date'].split('T')[0]
+                    if date not in daily_preds:
+                        daily_preds[date] = []
+                    daily_preds[date].append(row['predicted_aqi'])
+                    
+            for date in daily_preds:
+                daily_preds[date] = sum(daily_preds[date]) / len(daily_preds[date])
+
             # Group actuals by date (take daily average)
             daily_actuals = {}
             for row in actuals:
@@ -281,10 +373,8 @@ class AQIPredictor:
             # Combine
             history = []
             errors = []
-            for p in predictions:
-                date = p['target_date']
+            for date, pred_val in daily_preds.items():
                 actual = daily_actuals.get(date)
-                pred_val = p['predicted_aqi']
                 
                 history.append({
                     "date": date,
@@ -292,8 +382,8 @@ class AQIPredictor:
                     "actual": actual
                 })
                 
-                if actual is not None:
-                    errors.append(abs(pred_val - actual) / max(actual, 1)) # MAPE
+                if actual is not None and actual > 0:
+                    errors.append(abs(pred_val - actual) / actual) # MAPE
                     
             mape = sum(errors) / len(errors) if errors else 0
             accuracy = max(0, 100 - (mape * 100)) if errors else None

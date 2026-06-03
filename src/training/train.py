@@ -99,8 +99,8 @@ def prepare_data(
         target_cols = [col for col in df.columns if col.startswith('target_') or '_target_' in col]
         feature_cols = [col for col in df.columns if col not in exclude_cols + target_cols]
     
-    # Remove rows with NaN values
-    df = df.dropna()
+    # Remove rows with NaN values only in the required columns
+    df = df.dropna(subset=feature_cols + [target_col])
     
     if target_col not in df.columns:
         raise ValueError(f"Target column '{target_col}' not found. Available: {target_cols}")
