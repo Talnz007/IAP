@@ -6,108 +6,163 @@ import numpy as np
 from typing import Tuple
 
 
+import warnings
+warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
+
 def compute_time_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Extract time-based features from timestamp.
+    
+    Args:
+        df: DataFrame with 'timestamp' column
+        
+    Returns:
+        DataFrame with additional time features
+    """
     df = df.copy()
+    
+    # Ensure timestamp is datetime
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     
+    # Extract time components
     df['hour'] = df['timestamp'].dt.hour
-    df['day_of_month'] = df['timestamp'].dt.day
+    df['day'] = df['timestamp'].dt.day
     df['day_of_week'] = df['timestamp'].dt.dayofweek
     df['month'] = df['timestamp'].dt.month
     df['year'] = df['timestamp'].dt.year
-    df['week_of_year'] = df['timestamp'].dt.isocalendar().week.astype(int)
-    
     df['is_weekend'] = df['day_of_week'].isin([5, 6]).astype(int)
-    df['is_night'] = ((df['hour'] < 6) | (df['hour'] > 20)).astype(int)
-    df['is_rush_hour'] = (((df['hour'] >= 7) & (df['hour'] <= 9)) | ((df['hour'] >= 16) & (df['hour'] <= 18))).astype(int)
     
-    df['season_winter'] = df['month'].isin([12, 1, 2]).astype(int)
-    df['season_spring'] = df['month'].isin([3, 4, 5]).astype(int)
-    df['season_summer'] = df['month'].isin([6, 7, 8]).astype(int)
-    df['season_fall'] = df['month'].isin([9, 10, 11]).astype(int)
-    
+    # Cyclical encoding for periodic features
     df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
     df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
-    df['dow_sin'] = np.sin(2 * np.pi * df['day_of_week'] / 7)
-    df['dow_cos'] = np.cos(2 * np.pi * df['day_of_week'] / 7)
-    df['dom_sin'] = np.sin(2 * np.pi * df['day_of_month'] / 31)
-    df['dom_cos'] = np.cos(2 * np.pi * df['day_of_month'] / 31)
+    df['day_of_week_sin'] = np.sin(2 * np.pi * df['day_of_week'] / 7)
+    df['day_of_week_cos'] = np.cos(2 * np.pi * df['day_of_week'] / 7)
     df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
     df['month_cos'] = np.cos(2 * np.pi * df['month'] / 12)
-    df['woy_sin'] = np.sin(2 * np.pi * df['week_of_year'] / 52)
-    df['woy_cos'] = np.cos(2 * np.pi * df['week_of_year'] / 52)
     
     return df
+
+
+def compute_lag_features(df: pd.DataFrame, target_col: str = 'aqi', lags: list = None) -> pd.DataFrame:
+    """
+    Create lagged features for time series prediction.
+    
+    Args:
+        df: DataFrame with target column
+        target_col: Name of the target column
+        lags: List of lag values to create
+        
+    Returns:
+        DataFrame with lag features
+    """
+    df = df.copy()
+    
+    if lags is None:
+        lags = [1, 2, 3, 6, 12, 24]  # Hours
+    
+    for lag in lags:
+        df[f'{target_col}_lag_{lag}h'] = df[target_col].shift(lag)
+    
+    return df
+
+
+def compute_rolling_features(df: pd.DataFrame, target_col: str = 'aqi', windows: list = None) -> pd.DataFrame:
+    """
+    Create rolling statistics features.
+    
+    Args:
+        df: DataFrame with target column
+        target_col: Name of the target column
+        windows: List of window sizes for rolling calculations
+        
+    Returns:
+        DataFrame with rolling features
+    """
+    df = df.copy()
+    
+    if windows is None:
+        windows = [3, 6, 12, 24]  # Hours
+    
+    for window in windows:
+        df[f'{target_col}_rolling_mean_{window}h'] = df[target_col].rolling(window).mean()
+        df[f'{target_col}_rolling_std_{window}h'] = df[target_col].rolling(window).std()
+        df[f'{target_col}_rolling_min_{window}h'] = df[target_col].rolling(window).min()
+        df[f'{target_col}_rolling_max_{window}h'] = df[target_col].rolling(window).max()
+    
+    return df
+
+
+def compute_change_rate(df: pd.DataFrame, target_col: str = 'aqi', periods: list = None) -> pd.DataFrame:
+    """
+    Calculate AQI change rate over different periods.
+    
+    Args:
+        df: DataFrame with target column
+        target_col: Name of the target column
+        periods: List of periods for change rate calculation
+        
+    Returns:
+        DataFrame with change rate features
+    """
+    df = df.copy()
+    
+    if periods is None:
+        periods = [1, 3, 6, 12, 24]  # Hours
+    
+    for period in periods:
+        df[f'{target_col}_change_{period}h'] = df[target_col].diff(period)
+        df[f'{target_col}_pct_change_{period}h'] = df[target_col].pct_change(period)
+    
+    return df
+
 
 def create_targets(df: pd.DataFrame, target_col: str = 'aqi', horizons: list = None) -> pd.DataFrame:
+    """
+    Create target variables for different prediction horizons.
+    
+    Args:
+        df: DataFrame with target column
+        target_col: Name of the column to predict
+        horizons: List of future horizons to predict (in hours)
+        
+    Returns:
+        DataFrame with target columns
+    """
     df = df.copy()
+    
     if horizons is None:
-        horizons = [1, 3, 6, 12, 24, 48, 72]
+        horizons = [1, 3, 6, 12, 24, 48, 72]  # Hours (up to 3 days)
+    
     for horizon in horizons:
-        df[f'target_{horizon}h'] = df[target_col].shift(-horizon)
+        df[f'{target_col}_target_{horizon}h'] = df[target_col].shift(-horizon)
+    
     return df
 
+
 def compute_all_features(df: pd.DataFrame, target_col: str = 'aqi') -> Tuple[pd.DataFrame, list, list]:
+    """
+    Compute all features and targets.
+    
+    Args:
+        df: Raw DataFrame with AQI data
+        target_col: Name of the target column
+        
+    Returns:
+        Tuple of (processed DataFrame, feature columns, target columns)
+    """
+    # Ensure data is sorted by timestamp
     df = df.sort_values('timestamp').reset_index(drop=True)
     
+    # Apply all feature engineering steps
     df = compute_time_features(df)
-    
-    # Generate lag, rolling, diff features for specific columns
-    lags = [1, 3, 6, 12, 24, 48, 72]
-    diff_periods = [1, 6, 12, 24]
-    windows = [6, 12, 24, 48]
-    
-    cols_for_lag = ['pm2_5', 'pm10', 'temp', 'humidity', 'wind_speed']
-    cols_for_diff = ['pm2_5', 'pm10', 'temp', 'humidity', 'pressure']
-    
-    # Ensure numerical cols are float to prevent NoneType errors in diff/rolling
-    all_num_cols = list(set(cols_for_lag + cols_for_diff + [target_col]))
-    for col in all_num_cols:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    
-    for col in cols_for_lag:
-        if col in df.columns:
-            for lag in lags:
-                df[f'{col}_lag_{lag}h'] = df[col].shift(lag)
-                
-    cols_for_rolling = ['pm2_5', 'pm10', 'temp', 'humidity']
-    for col in cols_for_rolling:
-        if col in df.columns:
-            for w in windows:
-                df[f'{col}_rolling_mean_{w}h'] = df[col].rolling(w).mean()
-                df[f'{col}_rolling_std_{w}h'] = df[col].rolling(w).std()
-                df[f'{col}_rolling_min_{w}h'] = df[col].rolling(w).min()
-                df[f'{col}_rolling_max_{w}h'] = df[col].rolling(w).max()
-                
-    cols_for_diff = ['pm2_5', 'pm10', 'temp', 'humidity', 'pressure']
-    for col in cols_for_diff:
-        if col in df.columns:
-            for period in diff_periods:
-                df[f'{col}_diff_{period}h'] = df[col].diff(period)
-                df[f'{col}_pct_change_{period}h'] = df[col].pct_change(period)
-                
-    # Derived features
-    if 'temp' in df.columns and 'humidity' in df.columns:
-        df['temp_humidity'] = df['temp'] * df['humidity']
-        
-    if 'wind_speed' in df.columns and 'wind_deg' in df.columns:
-        df['wind_u'] = df['wind_speed'] * np.cos(np.radians(df['wind_deg']))
-        df['wind_v'] = df['wind_speed'] * np.sin(np.radians(df['wind_deg']))
-        
-    if 'pressure' in df.columns:
-        df['pressure_gradient'] = df['pressure'].diff(1)
-        
-    if 'pm2_5' in df.columns and 'pm10' in df.columns:
-        df['pm25_pm10_ratio'] = df['pm2_5'] / (df['pm10'] + 1e-5)
-        
-    if 'visibility' in df.columns:
-        df['visibility_inv'] = 1.0 / (df['visibility'] + 1e-5)
-        
+    df = compute_lag_features(df, target_col)
+    df = compute_rolling_features(df, target_col)
+    df = compute_change_rate(df, target_col)
     df = create_targets(df, target_col)
     
-    exclude_cols = ['timestamp', 'city', 'observation_id', 'event_time']
-    target_cols = [col for col in df.columns if col.startswith('target_')]
+    # Define feature and target columns
+    exclude_cols = ['timestamp', 'city']
+    target_cols = [col for col in df.columns if '_target_' in col]
     feature_cols = [col for col in df.columns if col not in exclude_cols + target_cols]
     
     return df, feature_cols, target_cols
