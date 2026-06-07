@@ -1,0 +1,322 @@
+{
+  "F:\\islamabad-aqi-predictor\\model_schema.json": {
+    "mtime": 1776748485.1133926,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "F:\\islamabad-aqi-predictor\\.devcontainer\\devcontainer.json": {
+    "mtime": 1776748484.9578187,
+    "ast_hash": "ee383f3e106817ef10a55d9775727807",
+    "semantic_hash": "ee383f3e106817ef10a55d9775727807"
+  },
+  "F:\\islamabad-aqi-predictor\\data\\checkpoints\\fetch_checkpoint.json": {
+    "mtime": 1776748484.9710283,
+    "ast_hash": "49d9d3a1e4e2f2a9a740aa16e803a400",
+    "semantic_hash": "49d9d3a1e4e2f2a9a740aa16e803a400"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\lightgbm\\20260122_204348\\metadata.json": {
+    "mtime": 1776748485.1143935,
+    "ast_hash": "16eb91d0b64ca1f4b55d52f034ef0d76",
+    "semantic_hash": "16eb91d0b64ca1f4b55d52f034ef0d76"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\lightgbm\\20260122_221323\\metadata.json": {
+    "mtime": 1776748485.1184294,
+    "ast_hash": "21961a6ee548697b7a35916bd3f5c889",
+    "semantic_hash": "21961a6ee548697b7a35916bd3f5c889"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\lightgbm\\20260122_232831\\metadata.json": {
+    "mtime": 1776748485.1219475,
+    "ast_hash": "61580cd7d2c8bc45e0a4e5e999b840d8",
+    "semantic_hash": "61580cd7d2c8bc45e0a4e5e999b840d8"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\lightgbm\\20260130_195327\\metadata.json": {
+    "mtime": 1776748485.1239488,
+    "ast_hash": "b45f1d7c2bceb9969c2703ad52b01aab",
+    "semantic_hash": "b45f1d7c2bceb9969c2703ad52b01aab"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\lightgbm\\20260130_200551\\metadata.json": {
+    "mtime": 1776748485.1259484,
+    "ast_hash": "cd699acb5cccf67b10c7310a225191b6",
+    "semantic_hash": "cd699acb5cccf67b10c7310a225191b6"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\lightgbm\\20260131_173707\\metadata.json": {
+    "mtime": 1776748485.1278746,
+    "ast_hash": "2fc4f7507293083b3d6d15538987769c",
+    "semantic_hash": "2fc4f7507293083b3d6d15538987769c"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\neural_network\\20260122_204349\\metadata.json": {
+    "mtime": 1776748485.1298554,
+    "ast_hash": "64c2c1eaededd621528e9148c30aa6d8",
+    "semantic_hash": "64c2c1eaededd621528e9148c30aa6d8"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\neural_network\\20260122_232831\\metadata.json": {
+    "mtime": 1776748485.1353843,
+    "ast_hash": "adb3d405335d25586abcc52000296e35",
+    "semantic_hash": "adb3d405335d25586abcc52000296e35"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\neural_network\\20260130_195327\\metadata.json": {
+    "mtime": 1776748485.1409607,
+    "ast_hash": "1023d8af8f65a0c499d29c8c74b216a1",
+    "semantic_hash": "1023d8af8f65a0c499d29c8c74b216a1"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\neural_network\\20260130_200551\\metadata.json": {
+    "mtime": 1776748485.1521835,
+    "ast_hash": "ab3e5a63d4b97a1fda53010587994bf6",
+    "semantic_hash": "ab3e5a63d4b97a1fda53010587994bf6"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\neural_network\\20260131_173721\\metadata.json": {
+    "mtime": 1776748485.165389,
+    "ast_hash": "b0ef210c7622f93883e0d2e83a826c23",
+    "semantic_hash": "b0ef210c7622f93883e0d2e83a826c23"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\random_forest\\20260201_173125\\metadata.json": {
+    "mtime": 1776748485.1787972,
+    "ast_hash": "9297b30b65cf253ae42c948dffb50226",
+    "semantic_hash": "9297b30b65cf253ae42c948dffb50226"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\ridge\\20260120_223604\\metadata.json": {
+    "mtime": 1776748485.1853874,
+    "ast_hash": "01e7d1dd86051a5762687c7703b2d306",
+    "semantic_hash": "01e7d1dd86051a5762687c7703b2d306"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\ridge\\20260122_204348\\metadata.json": {
+    "mtime": 1776748485.1863863,
+    "ast_hash": "ed2c974bd7666f1739ac2c29492bfe72",
+    "semantic_hash": "ed2c974bd7666f1739ac2c29492bfe72"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\ridge\\20260122_221323\\metadata.json": {
+    "mtime": 1776748485.188136,
+    "ast_hash": "698e71ffdd4547576c6b676cf7d4b5c7",
+    "semantic_hash": "698e71ffdd4547576c6b676cf7d4b5c7"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\ridge\\20260122_232831\\metadata.json": {
+    "mtime": 1776748485.1901574,
+    "ast_hash": "8dc65f87c1c68adebc60f4e5c77c2533",
+    "semantic_hash": "8dc65f87c1c68adebc60f4e5c77c2533"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\xgboost\\20260130_195327\\metadata.json": {
+    "mtime": 1776748485.1920314,
+    "ast_hash": "b025483b1b63298bbeda0da8f7897064",
+    "semantic_hash": "b025483b1b63298bbeda0da8f7897064"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\xgboost\\20260130_200551\\metadata.json": {
+    "mtime": 1776748485.1990678,
+    "ast_hash": "abbcd58633d1a871f536e4b12f07bdcb",
+    "semantic_hash": "abbcd58633d1a871f536e4b12f07bdcb"
+  },
+  "F:\\islamabad-aqi-predictor\\models\\xgboost\\20260131_173648\\metadata.json": {
+    "mtime": 1776748485.206622,
+    "ast_hash": "c595d626e3d56a483a4fdd468dbc7570",
+    "semantic_hash": "c595d626e3d56a483a4fdd468dbc7570"
+  },
+  "F:\\islamabad-aqi-predictor\\pipelines\\feature_pipeline.py": {
+    "mtime": 1776748485.2156296,
+    "ast_hash": "e32170b72812f57de0c5dc2e7f802c2a",
+    "semantic_hash": "e32170b72812f57de0c5dc2e7f802c2a"
+  },
+  "F:\\islamabad-aqi-predictor\\pipelines\\inference_pipeline.py": {
+    "mtime": 1776748485.2166219,
+    "ast_hash": "beb28b10324f45e7ee0fe402d3c0c935",
+    "semantic_hash": "beb28b10324f45e7ee0fe402d3c0c935"
+  },
+  "F:\\islamabad-aqi-predictor\\pipelines\\training_pipeline.py": {
+    "mtime": 1776748485.2176216,
+    "ast_hash": "b4e198cf00f1ae40a95920cd461a3b66",
+    "semantic_hash": "b4e198cf00f1ae40a95920cd461a3b66"
+  },
+  "F:\\islamabad-aqi-predictor\\pipelines\\train_models.py": {
+    "mtime": 1776748485.2176216,
+    "ast_hash": "e74452aac1065fb66eb5013b0856ecd0",
+    "semantic_hash": "e74452aac1065fb66eb5013b0856ecd0"
+  },
+  "F:\\islamabad-aqi-predictor\\scripts\\backfill_data.py": {
+    "mtime": 1776748485.2206788,
+    "ast_hash": "02a8612c0847df7024a75f3d76623862",
+    "semantic_hash": "02a8612c0847df7024a75f3d76623862"
+  },
+  "F:\\islamabad-aqi-predictor\\scripts\\data_quality_report.py": {
+    "mtime": 1776748485.2206788,
+    "ast_hash": "643e93939fb3812b6123168d927d3d40",
+    "semantic_hash": "643e93939fb3812b6123168d927d3d40"
+  },
+  "F:\\islamabad-aqi-predictor\\scripts\\data_requirements.py": {
+    "mtime": 1776748485.2216814,
+    "ast_hash": "d67ec8127c9a1aed5be3dfcf396e4e14",
+    "semantic_hash": "d67ec8127c9a1aed5be3dfcf396e4e14"
+  },
+  "F:\\islamabad-aqi-predictor\\scripts\\fetch_live_aqi.py": {
+    "mtime": 1776748485.2216814,
+    "ast_hash": "89c48d9fa52060881dbab03bf4aa8392",
+    "semantic_hash": "89c48d9fa52060881dbab03bf4aa8392"
+  },
+  "F:\\islamabad-aqi-predictor\\scripts\\model_comparison.py": {
+    "mtime": 1776748485.2287014,
+    "ast_hash": "62124caf9b1301ee4ecc54a4ebf27077",
+    "semantic_hash": "62124caf9b1301ee4ecc54a4ebf27077"
+  },
+  "F:\\islamabad-aqi-predictor\\scripts\\prepare_for_hopsworks.py": {
+    "mtime": 1776748485.2287014,
+    "ast_hash": "7b5b9002c7f23cffac7b58a0be10db38",
+    "semantic_hash": "7b5b9002c7f23cffac7b58a0be10db38"
+  },
+  "F:\\islamabad-aqi-predictor\\scripts\\reupload_to_hopsworks.py": {
+    "mtime": 1776748485.229694,
+    "ast_hash": "ebe96f5113c897d1701b5d42b8ffaddf",
+    "semantic_hash": "ebe96f5113c897d1701b5d42b8ffaddf"
+  },
+  "F:\\islamabad-aqi-predictor\\scripts\\train_with_hopsworks.py": {
+    "mtime": 1776748485.229694,
+    "ast_hash": "23d02f80f7eb4927d84839a2aa499bc9",
+    "semantic_hash": "23d02f80f7eb4927d84839a2aa499bc9"
+  },
+  "F:\\islamabad-aqi-predictor\\scripts\\upload_to_hopsworks.py": {
+    "mtime": 1776748485.2306938,
+    "ast_hash": "f46c2ae4b2b1e161e0c7bd1a78a45ae9",
+    "semantic_hash": "f46c2ae4b2b1e161e0c7bd1a78a45ae9"
+  },
+  "F:\\islamabad-aqi-predictor\\scripts\\upload_to_hopsworks_rest.py": {
+    "mtime": 1776748485.2306938,
+    "ast_hash": "278bba68c0531ccdb5ecf5ec0f68477a",
+    "semantic_hash": "278bba68c0531ccdb5ecf5ec0f68477a"
+  },
+  "F:\\islamabad-aqi-predictor\\scripts\\validate_hopsworks_data.py": {
+    "mtime": 1776748485.2306938,
+    "ast_hash": "3e605e9217826f2ec1992552d033243a",
+    "semantic_hash": "3e605e9217826f2ec1992552d033243a"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\features\\compute_features.py": {
+    "mtime": 1776748485.231704,
+    "ast_hash": "d94ea9ab306aa2b0dd89f269733b53d0",
+    "semantic_hash": "d94ea9ab306aa2b0dd89f269733b53d0"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\features\\feature_engineering.py": {
+    "mtime": 1776748485.2326941,
+    "ast_hash": "f421052d95bf777da83cb64d079e70e8",
+    "semantic_hash": "f421052d95bf777da83cb64d079e70e8"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\features\\feature_store.py": {
+    "mtime": 1776748485.2326941,
+    "ast_hash": "f1c5dbac3bf1b1d5f211d0ba6bf4036a",
+    "semantic_hash": "f1c5dbac3bf1b1d5f211d0ba6bf4036a"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\features\\fetch_data.py": {
+    "mtime": 1776748485.2336936,
+    "ast_hash": "5aea3a81a26f91dd8cbf5344b953c552",
+    "semantic_hash": "5aea3a81a26f91dd8cbf5344b953c552"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\features\\__init__.py": {
+    "mtime": 1776748485.231704,
+    "ast_hash": "0c3d876faefb2dbd8743036443dc5714",
+    "semantic_hash": "0c3d876faefb2dbd8743036443dc5714"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\inference\\explainability.py": {
+    "mtime": 1776748485.2347667,
+    "ast_hash": "4a13b8c6a6142ba0c699766b24cbcff2",
+    "semantic_hash": "4a13b8c6a6142ba0c699766b24cbcff2"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\inference\\predict.py": {
+    "mtime": 1776748485.2347667,
+    "ast_hash": "8b8e0888e4da12ecf4ce82a8a468e6c4",
+    "semantic_hash": "8b8e0888e4da12ecf4ce82a8a468e6c4"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\inference\\__init__.py": {
+    "mtime": 1776748485.2336936,
+    "ast_hash": "7ad2d2c2642e96a7f5120a6755aff643",
+    "semantic_hash": "7ad2d2c2642e96a7f5120a6755aff643"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\models\\train_models.py": {
+    "mtime": 1776748485.235707,
+    "ast_hash": "e286f66fce49399f4b6dde9387166d5d",
+    "semantic_hash": "e286f66fce49399f4b6dde9387166d5d"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\training\\evaluate.py": {
+    "mtime": 1776748485.236705,
+    "ast_hash": "5faa212608a3a49c52ef41b2a8f9b7f6",
+    "semantic_hash": "5faa212608a3a49c52ef41b2a8f9b7f6"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\training\\model_registry.py": {
+    "mtime": 1776748485.236705,
+    "ast_hash": "22ba7f319069754fabb97542ba058c89",
+    "semantic_hash": "22ba7f319069754fabb97542ba058c89"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\training\\train.py": {
+    "mtime": 1776748485.2402422,
+    "ast_hash": "67c9726b9b922e7da72d4ba87840bb3f",
+    "semantic_hash": "67c9726b9b922e7da72d4ba87840bb3f"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\training\\__init__.py": {
+    "mtime": 1776748485.235707,
+    "ast_hash": "5259deded35b3fc7f47da8387471ca70",
+    "semantic_hash": "5259deded35b3fc7f47da8387471ca70"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\training\\models\\deep_learning.py": {
+    "mtime": 1776748485.2402422,
+    "ast_hash": "0f28602a38dd9426dff6bc527c6b01e4",
+    "semantic_hash": "0f28602a38dd9426dff6bc527c6b01e4"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\training\\models\\sklearn_models.py": {
+    "mtime": 1776748485.2402422,
+    "ast_hash": "b7cd3cd4e621fff51dbea7635010a625",
+    "semantic_hash": "b7cd3cd4e621fff51dbea7635010a625"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\training\\models\\__init__.py": {
+    "mtime": 1776748485.2392707,
+    "ast_hash": "9cb30591941e4857f781ebbcd49a550c",
+    "semantic_hash": "9cb30591941e4857f781ebbcd49a550c"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\utils\\config.py": {
+    "mtime": 1776748485.2418878,
+    "ast_hash": "3fa8c34d3c8395f2cd77e9d49de6f04e",
+    "semantic_hash": "3fa8c34d3c8395f2cd77e9d49de6f04e"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\utils\\logger.py": {
+    "mtime": 1776748485.241902,
+    "ast_hash": "881b91f07ad1c1149bb120a9a4036252",
+    "semantic_hash": "881b91f07ad1c1149bb120a9a4036252"
+  },
+  "F:\\islamabad-aqi-predictor\\src\\utils\\__init__.py": {
+    "mtime": 1776748485.2412457,
+    "ast_hash": "833284184e2ae9948fe003c0f794c117",
+    "semantic_hash": "833284184e2ae9948fe003c0f794c117"
+  },
+  "F:\\islamabad-aqi-predictor\\tests\\test_features.py": {
+    "mtime": 1776748485.241902,
+    "ast_hash": "bc3678efe84311d4c5a1cddcf412aac9",
+    "semantic_hash": "bc3678efe84311d4c5a1cddcf412aac9"
+  },
+  "F:\\islamabad-aqi-predictor\\tests\\test_inference.py": {
+    "mtime": 1776748485.2428968,
+    "ast_hash": "64ec041ddaf5e81af5ce9705c4cbd070",
+    "semantic_hash": "64ec041ddaf5e81af5ce9705c4cbd070"
+  },
+  "F:\\islamabad-aqi-predictor\\tests\\test_training.py": {
+    "mtime": 1776748485.2428968,
+    "ast_hash": "306bbb58669caa56647a7b6351a42596",
+    "semantic_hash": "306bbb58669caa56647a7b6351a42596"
+  },
+  "F:\\islamabad-aqi-predictor\\tests\\__init__.py": {
+    "mtime": 1776748485.241902,
+    "ast_hash": "eb427e4a5069eb6b5401068c577390a8",
+    "semantic_hash": "eb427e4a5069eb6b5401068c577390a8"
+  },
+  "F:\\islamabad-aqi-predictor\\webapp\\app.py": {
+    "mtime": 1776748485.2450857,
+    "ast_hash": "ccd71f64f3eb0e311b7316974eaf5c43",
+    "semantic_hash": "ccd71f64f3eb0e311b7316974eaf5c43"
+  },
+  "F:\\islamabad-aqi-predictor\\webapp\\islamabad_predictor.py": {
+    "mtime": 1776748485.2450857,
+    "ast_hash": "eab73984e0e7e7f241769c9b1c095ba5",
+    "semantic_hash": "eab73984e0e7e7f241769c9b1c095ba5"
+  },
+  "F:\\islamabad-aqi-predictor\\webapp\\api\\main.py": {
+    "mtime": 1776748485.2440915,
+    "ast_hash": "2ea85c568b915662e4b7191260df8a5a",
+    "semantic_hash": "2ea85c568b915662e4b7191260df8a5a"
+  },
+  "F:\\islamabad-aqi-predictor\\webapp\\api\\__init__.py": {
+    "mtime": 1776748485.2440915,
+    "ast_hash": "5d13903012ef5918ee39a93d734723af",
+    "semantic_hash": "5d13903012ef5918ee39a93d734723af"
+  }
+}

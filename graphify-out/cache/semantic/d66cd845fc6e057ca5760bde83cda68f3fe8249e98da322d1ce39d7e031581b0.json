@@ -1,0 +1,1 @@
+{"nodes": [{"id": "lightgbm_model", "label": "LightGBM Model", "file_type": "code", "source_file": "models/lightgbm/latest.txt", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

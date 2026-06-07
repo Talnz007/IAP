@@ -1,0 +1,1 @@
+{"nodes": [], "edges": [{"source": "github_actions_workflow", "target": "training_pipeline_py_training_pipeline", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": ".github/workflows/training_pipeline.yml", "source_location": null, "weight": 1.0}], "hyperedges": []}
